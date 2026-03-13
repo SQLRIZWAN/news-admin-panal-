@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KWT News — Media Blast Tool</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #c9a84c;
+    --gold-light: #e8c96e;
+    --bg: #0c0c0e;
+    --surface: #141418;
+    --surface2: #1c1c22;
+    --border: rgba(201,168,76,0.18);
+    --text: #f0ede6;
+    --text-dim: #8a8580;
+    --green: #3ecf8e;
+    --red: #ff5e5e;
+    --blue: #4ab3f4;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 20% 0%, rgba(201,168,76,0.07) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 30% at 80% 100%, rgba(201,168,76,0.05) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 16px 60px;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 32px 0 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 32px;
+  }
+
+  .logo-icon {
+    width: 48px; height: 48px;
+    background: linear-gradient(135deg, var(--gold), var(--gold-light));
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+    box-shadow: 0 4px 20px rgba(201,168,76,0.3);
+  }
+
+  header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(22px, 5vw, 30px);
+    color: var(--gold-light);
+    line-height: 1.1;
+  }
+
+  header p {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-top: 3px;
+  }
+
+  .sender-badge {
+    margin-left: auto;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 16px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .sender-badge .label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+  .sender-badge .val { font-size: 13px; color: var(--gold-light); font-weight: 500; margin-top: 2px; }
+
+  /* Section label */
+  .section-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--gold);
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+
+  /* Compose box */
+  .compose-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 28px;
+  }
+
+  .compose-box .subject-row {
+    display: flex; gap: 12px; margin-bottom: 14px;
+  }
+
+  .input-group { flex: 1; }
+  .input-group label { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; display: block; }
+
+  input[type="text"], textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    padding: 12px 16px;
+    outline: none;
+    transition: border-color 0.2s;
+    resize: none;
+  }
+
+  input[type="text"]:focus, textarea:focus {
+    border-color: var(--gold);
+  }
+
+  textarea { height: 160px; }
+
+  .char-count {
+    text-align: right;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 6px;
+  }
+
+  /* Recipients */
+  .recipients-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 28px;
+  }
+
+  .rec-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+  }
+
+  .select-all-btn {
+    font-size: 12px;
+    color: var(--gold);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 12px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.2s;
+  }
+
+  .select-all-btn:hover { background: rgba(201,168,76,0.1); }
+
+  .recipient-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    user-select: none;
+  }
+
+  .recipient-card:hover { border-color: rgba(201,168,76,0.4); }
+
+  .recipient-card.selected {
+    border-color: var(--gold);
+    background: rgba(201,168,76,0.05);
+  }
+
+  .rec-checkbox {
+    width: 20px; height: 20px;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 2px;
+    transition: all 0.2s;
+  }
+
+  .recipient-card.selected .rec-checkbox {
+    background: var(--gold);
+    border-color: var(--gold);
+  }
+
+  .rec-check-icon { color: #000; font-size: 12px; font-weight: 700; display: none; }
+  .recipient-card.selected .rec-check-icon { display: block; }
+
+  .rec-info { flex: 1; }
+  .rec-name { font-weight: 600; font-size: 14px; color: var(--text); }
+  .rec-dept { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+
+  .rec-channels {
+    display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;
+  }
+
+  .channel-tag {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+
+  .channel-tag.email { background: rgba(74,179,244,0.12); color: var(--blue); border: 1px solid rgba(74,179,244,0.25); }
+  .channel-tag.whatsapp { background: rgba(62,207,142,0.12); color: var(--green); border: 1px solid rgba(62,207,142,0.25); }
+
+  /* Action bar */
+  .action-bar {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 28px;
+  }
+
+  .btn {
+    flex: 1;
+    min-width: 160px;
+    padding: 16px 20px;
+    border-radius: 12px;
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    transition: all 0.22s;
+    letter-spacing: 0.3px;
+  }
+
+  .btn-email {
+    background: linear-gradient(135deg, #1a6fa8, #4ab3f4);
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(74,179,244,0.25);
+  }
+
+  .btn-email:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(74,179,244,0.35);
+  }
+
+  .btn-whatsapp {
+    background: linear-gradient(135deg, #128c50, #3ecf8e);
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(62,207,142,0.25);
+  }
+
+  .btn-whatsapp:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(62,207,142,0.35);
+  }
+
+  .btn-both {
+    background: linear-gradient(135deg, var(--gold), var(--gold-light));
+    color: #000;
+    box-shadow: 0 4px 20px rgba(201,168,76,0.3);
+    flex: 2;
+  }
+
+  .btn-both:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(201,168,76,0.45);
+  }
+
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+
+  /* Progress */
+  .progress-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 28px;
+    display: none;
+  }
+
+  .progress-box.active { display: block; }
+
+  .progress-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .progress-bar-track {
+    height: 6px;
+    background: var(--surface2);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--gold), var(--gold-light));
+    border-radius: 3px;
+    transition: width 0.5s ease;
+    width: 0%;
+  }
+
+  .log-list { max-height: 200px; overflow-y: auto; }
+
+  .log-item {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin-bottom: 4px;
+    background: var(--surface2);
+  }
+
+  .log-item .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .log-item.opened .status-dot { background: var(--green); }
+  .log-item.pending .status-dot { background: var(--gold); animation: pulse 1s infinite; }
+
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* Stats */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    text-align: center;
+  }
+
+  .stat-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 32px;
+    color: var(--gold-light);
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 6px;
+  }
+
+  /* Tips box */
+  .tips-box {
+    background: rgba(201,168,76,0.05);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.7;
+  }
+
+  .tips-box strong { color: var(--gold); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--surface2); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  @media (max-width: 600px) {
+    .sender-badge { display: none; }
+    header { flex-wrap: wrap; }
+    .stats-row { grid-template-columns: repeat(3,1fr); }
+    .compose-box .subject-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- Header -->
+  <header>
+    <div class="logo-icon">📡</div>
+    <div>
+      <h1>Media Blast Tool</h1>
+      <p>Kuwait Media Network — Bulk Message Sender</p>
+    </div>
+    <div class="sender-badge">
+      <div class="label">Sender</div>
+      <div class="val">📱 +965 94091673</div>
+      <div class="val">✉️ kwtnews.com@gmail.com</div>
+    </div>
+  </header>
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-num" id="stat-total">6</div>
+      <div class="stat-label">Total Media</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" id="stat-selected">0</div>
+      <div class="stat-label">Selected</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" id="stat-sent">0</div>
+      <div class="stat-label">Sent Today</div>
+    </div>
+  </div>
+
+  <!-- Compose -->
+  <div class="compose-box">
+    <div class="section-label">✍️ Message Compose</div>
+    <div class="subject-row">
+      <div class="input-group">
+        <label>Email Subject</label>
+        <input type="text" id="subject" placeholder="e.g. Advertising Proposal — KWT News" value="Advertising Proposal — KWT News Media">
+      </div>
+    </div>
+    <div class="input-group">
+      <label>Message Body (Email & WhatsApp)</label>
+      <textarea id="message" placeholder="Assalam Alaikum,&#10;&#10;Mera naam ... hai aur main KWT News se hoon...&#10;&#10;Aapke sath advertising partnership discuss karna chahta hoon.&#10;&#10;Reply kijiye: +965 94091673 ya kwtnews.com@gmail.com&#10;&#10;Shukriya"></textarea>
+    </div>
+    <div class="char-count"><span id="char-count">0</span> characters | WhatsApp: max 1000 recommended</div>
+  </div>
+
+  <!-- Recipients -->
+  <div class="recipients-box">
+    <div class="rec-header">
+      <div class="section-label" style="margin:0">📋 Media Contacts</div>
+      <button class="select-all-btn" onclick="toggleSelectAll()">Select All</button>
+    </div>
+
+    <div id="recipients-list">
+      <!-- Injected by JS -->
+    </div>
+  </div>
+
+  <!-- Action Buttons -->
+  <div class="action-bar">
+    <button class="btn btn-email" id="btn-email" onclick="sendAll('email')" disabled>
+      ✉️ Send Email
+    </button>
+    <button class="btn btn-whatsapp" id="btn-wa" onclick="sendAll('whatsapp')" disabled>
+      💬 WhatsApp
+    </button>
+    <button class="btn btn-both" id="btn-both" onclick="sendAll('both')" disabled>
+      🚀 Send Both (Email + WhatsApp)
+    </button>
+  </div>
+
+  <!-- Progress -->
+  <div class="progress-box" id="progress-box">
+    <div class="progress-header">
+      <div class="section-label" style="margin:0">📤 Sending Progress</div>
+      <span id="progress-text" style="font-size:13px;color:var(--text-dim)">0 / 0</span>
+    </div>
+    <div class="progress-bar-track">
+      <div class="progress-bar-fill" id="progress-fill"></div>
+    </div>
+    <div class="log-list" id="log-list"></div>
+  </div>
+
+  <!-- Tips -->
+  <div class="tips-box">
+    <strong>💡 How it works:</strong><br>
+    1. Upar message likho — yahi email aur WhatsApp dono pe jayega.<br>
+    2. Media contacts select karo (checkboxes).<br>
+    3. <em>Send Both</em> dabao — ek ek karke tab khulenge (email + WhatsApp).<br>
+    4. <strong>Replies aapke +965 94091673 aur kwtnews.com@gmail.com pe aayengi</strong> — kyunki message mein aapki info likhi hai.<br>
+    <strong>⚠️ Note:</strong> WhatsApp ke liye browser tabs ek ek open hongi — har tab mein Send dabana hoga.
+  </div>
+
+</div>
+
+<script>
+  const SENDER_PHONE = '96594091673';
+  const SENDER_EMAIL = 'kwtnews.com@gmail.com';
+
+  const contacts = [
+    {
+      id: 1,
+      name: 'Al-Rai Media Group',
+      arabic: 'أل-راي',
+      dept: 'Marketing & Advertising',
+      emails: ['advertising@alraimedia.com'],
+      phones: ['96522244500','96522244591','96522244592'],
+      hasWA: true,
+    },
+    {
+      id: 2,
+      name: 'Al-Qabas Newspaper',
+      arabic: 'أل-قبس',
+      dept: 'Digital Advertising & Paper Ads',
+      emails: ['digital@alqabas.com'],
+      phones: ['96524812818','96522495103','96524834310'],
+      hasWA: true,
+    },
+    {
+      id: 3,
+      name: 'Arab Times',
+      arabic: 'Arab Times',
+      dept: 'Advertising & Editorial',
+      emails: ['advt@arabtimesonline.com'],
+      phones: ['96518382810','96555633481','96524813566'],
+      hasWA: true,
+    },
+    {
+      id: 4,
+      name: 'Al-Anba Newspaper',
+      arabic: 'أل-أنباء',
+      dept: 'Marketing, Sales & Digital',
+      emails: ['marketing@alanba.com.kw'],
+      phones: ['96522272766','96522272746','96522272769'],
+      hasWA: true,
+    },
+    {
+      id: 5,
+      name: 'Kuwait Times',
+      arabic: 'Kuwait Times',
+      dept: 'Main Office',
+      emails: ['info@kuwaittimes.com'],
+      phones: ['96524833199','96524835616'],
+      hasWA: true,
+    },
+    {
+      id: 6,
+      name: 'Personal Contact',
+      arabic: '🇮🇳 India',
+      dept: 'WhatsApp Only',
+      emails: [],
+      phones: ['919012277862'],
+      hasWA: true,
+    },
+  ];
+
+  let selected = new Set();
+  let sentCount = parseInt(localStorage.getItem('sentCount') || '0');
+
+  document.getElementById('stat-sent').textContent = sentCount;
+
+  function renderContacts() {
+    const list = document.getElementById('recipients-list');
+    list.innerHTML = '';
+    contacts.forEach(c => {
+      const card = document.createElement('div');
+      card.className = 'recipient-card' + (selected.has(c.id) ? ' selected' : '');
+      card.id = 'card-' + c.id;
+      card.onclick = () => toggleContact(c.id);
+      card.innerHTML = `
+        <div class="rec-checkbox">
+          <span class="rec-check-icon">✓</span>
+        </div>
+        <div class="rec-info">
+          <div class="rec-name">${c.name} <span style="color:var(--text-dim);font-weight:400;font-size:12px">${c.arabic}</span></div>
+          <div class="rec-dept">${c.dept}</div>
+          <div class="rec-channels">
+            ${c.emails.map(e => `<span class="channel-tag email">✉️ ${e}</span>`).join('')}
+            ${c.hasWA ? `<span class="channel-tag whatsapp">💬 WhatsApp (${c.phones.length} no.)</span>` : ''}
+          </div>
+        </div>
+      `;
+      list.appendChild(card);
+    });
+  }
+
+  function toggleContact(id) {
+    if (selected.has(id)) selected.delete(id);
+    else selected.add(id);
+    updateUI();
+  }
+
+  function toggleSelectAll() {
+    if (selected.size === contacts.length) {
+      selected.clear();
+    } else {
+      contacts.forEach(c => selected.add(c.id));
+    }
+    updateUI();
+  }
+
+  function updateUI() {
+    renderContacts();
+    document.getElementById('stat-selected').textContent = selected.size;
+    const hasMsg = document.getElementById('message').value.trim().length > 0;
+    const hasSelected = selected.size > 0;
+    const ok = hasMsg && hasSelected;
+    document.getElementById('btn-email').disabled = !ok;
+    document.getElementById('btn-wa').disabled = !ok;
+    document.getElementById('btn-both').disabled = !ok;
+  }
+
+  document.getElementById('message').addEventListener('input', function() {
+    document.getElementById('char-count').textContent = this.value.length;
+    updateUI();
+  });
+
+  document.getElementById('subject').addEventListener('input', updateUI);
+
+  function buildMessage() {
+    const msg = document.getElementById('message').value.trim();
+    if (!msg.includes(SENDER_PHONE) && !msg.includes('94091673')) {
+      return msg + '\n\n— Reply: +965 94091673 | ' + SENDER_EMAIL;
+    }
+    return msg;
+  }
+
+  function sendAll(mode) {
+    const msg = buildMessage();
+    if (!msg) return alert('Pehle message likho!');
+    const sub = document.getElementById('subject').value || 'Media Proposal';
+    const targets = contacts.filter(c => selected.has(c.id));
+    if (!targets.length) return;
+
+    const progressBox = document.getElementById('progress-box');
+    const logList = document.getElementById('log-list');
+    progressBox.classList.add('active');
+    logList.innerHTML = '';
+
+    let total = 0;
+    let done = 0;
+
+    const actions = [];
+    targets.forEach(c => {
+      if (mode === 'email' || mode === 'both') {
+        c.emails.forEach(e => {
+          actions.push({ type: 'email', contact: c.name, target: e,
+            fn: () => openEmail(e, sub, msg) });
+        });
+      }
+      if (mode === 'whatsapp' || mode === 'both') {
+        actions.push({ type: 'whatsapp', contact: c.name, target: c.phones[0],
+          fn: () => openWA(c.phones[0], msg) });
+      }
+    });
+
+    total = actions.length;
+
+    actions.forEach((a, i) => {
+      const item = document.createElement('div');
+      item.className = 'log-item pending';
+      item.id = 'log-' + i;
+      item.innerHTML = `<div class="status-dot"></div>
+        <span style="color:var(--text-dim)">${a.type === 'email' ? '✉️' : '💬'}</span>
+        <span><strong>${a.contact}</strong> → ${a.target}</span>`;
+      logList.appendChild(item);
+    });
+
+    function processNext(idx) {
+      if (idx >= actions.length) {
+        sentCount += done;
+        localStorage.setItem('sentCount', sentCount);
+        document.getElementById('stat-sent').textContent = sentCount;
+        return;
+      }
+      const a = actions[idx];
+      setTimeout(() => {
+        a.fn();
+        done++;
+        const item = document.getElementById('log-' + idx);
+        item.className = 'log-item opened';
+        const pct = Math.round((done / total) * 100);
+        document.getElementById('progress-fill').style.width = pct + '%';
+        document.getElementById('progress-text').textContent = done + ' / ' + total;
+        processNext(idx + 1);
+      }, idx === 0 ? 0 : 1200);
+    }
+
+    processNext(0);
+  }
+
+  function openEmail(email, subject, body) {
+    const full = `Reply kijiye: ${SENDER_EMAIL} | +965 94091673\n\n---\n${body}`;
+    const url = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(full)}`;
+    window.open(url, '_blank');
+  }
+
+  function openWA(phone, msg) {
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank');
+  }
+
+  // Init
+  renderContacts();
+  updateUI();
+</script>
+</body>
+</html>

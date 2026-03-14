@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KWT News — Admin Panel</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<style>
+:root {
+  --bg:#060606;--surface:#0e0e0e;--surface2:#131313;--surface3:#1a1a1a;--surface4:#212121;
+  --gold:#c9a84c;--gold2:#e8c96a;--gold3:#a8882a;--gold-glow:rgba(201,168,76,0.18);--gold-subtle:rgba(201,168,76,0.07);
+  --green:#00b853;--red:#e03535;--red-dim:rgba(224,53,53,0.12);
+  --text:#f0ede8;--text2:#9a9490;--text3:#565250;--text4:#333;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.1);--border-gold:rgba(201,168,76,0.3);
+  --radius:8px;--radius2:14px;--radius3:20px;
+  --shadow:0 8px 40px rgba(0,0,0,0.7);
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+input,textarea,select{-webkit-user-select:text;user-select:text;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;min-height:100vh;}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--gold3);border-radius:2px;}
+a{text-decoration:none;color:inherit;}
+button{cursor:pointer;font-family:'DM Sans',sans-serif;}
+
+/* ---- Auth Screen ---- */
+.auth-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
+.auth-card{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius2);padding:40px 36px;width:100%;max-width:380px;text-align:center;box-shadow:var(--shadow);}
+.auth-logo{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:700;color:var(--gold);margin-bottom:4px;}
+.auth-sub{font-size:10px;color:var(--text3);letter-spacing:3px;text-transform:uppercase;margin-bottom:30px;}
+.auth-badge{display:inline-block;background:var(--red-dim);border:1px solid rgba(224,53,53,0.3);color:var(--red);font-size:9px;font-weight:700;padding:3px 10px;border-radius:4px;letter-spacing:2px;text-transform:uppercase;margin-bottom:24px;}
+
+/* ---- Layout ---- */
+.admin-layout{display:grid;grid-template-columns:240px 1fr;min-height:100vh;}
+.admin-sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;}
+.admin-main{background:var(--bg);overflow-y:auto;}
+
+/* ---- Sidebar ---- */
+.sidebar-brand{padding:22px 20px 18px;border-bottom:1px solid var(--border);}
+.sidebar-brand-name{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:700;color:var(--gold);}
+.sidebar-brand-sub{font-size:9px;color:var(--text3);letter-spacing:3px;text-transform:uppercase;margin-top:2px;}
+.sidebar-admin-badge{display:inline-block;background:var(--gold-subtle);border:1px solid var(--border-gold);color:var(--gold);font-size:8px;font-weight:700;padding:2px 8px;border-radius:4px;letter-spacing:1px;text-transform:uppercase;margin-top:8px;}
+.sidebar-nav{padding:12px 0;flex:1;}
+.sidebar-section{padding:14px 20px 6px;font-size:9px;color:var(--text4);letter-spacing:3px;text-transform:uppercase;font-weight:600;}
+.nav-item{display:flex;align-items:center;gap:11px;padding:10px 20px;color:var(--text2);border:none;background:none;width:100%;text-align:left;font-size:13px;font-family:'DM Sans',sans-serif;border-left:2px solid transparent;transition:all 0.15s;cursor:pointer;}
+.nav-item:hover{background:var(--surface2);color:var(--text);}
+.nav-item.active{background:var(--gold-subtle);color:var(--gold);border-left-color:var(--gold);}
+.nav-item svg{flex-shrink:0;opacity:0.7;}
+.nav-item.active svg{opacity:1;}
+.sidebar-footer{padding:16px 20px;border-top:1px solid var(--border);}
+.sidebar-user{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.sidebar-avatar{width:34px;height:34px;border-radius:50%;background:var(--surface3);border:1.5px solid var(--gold3);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--gold);flex-shrink:0;}
+.sidebar-user-name{font-size:12px;font-weight:600;color:var(--text);}
+.sidebar-user-email{font-size:10px;color:var(--text3);}
+.btn-logout{display:flex;align-items:center;gap:8px;background:none;border:1px solid var(--border2);color:var(--text3);padding:7px 14px;border-radius:var(--radius);font-size:11px;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all 0.15s;width:100%;}
+.btn-logout:hover{border-color:var(--red);color:var(--red);}
+
+/* ---- Top Bar ---- */
+.admin-topbar{display:flex;align-items:center;justify-content:space-between;padding:18px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100;}
+.admin-topbar h1{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;}
+.topbar-right{display:flex;align-items:center;gap:10px;}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:var(--radius);font-size:12px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all 0.2s;border:none;}
+.btn-gold{background:linear-gradient(135deg,var(--gold3),var(--gold));color:#000;}
+.btn-gold:hover{filter:brightness(1.1);}
+.btn-outline{background:none;border:1px solid var(--border2);color:var(--text2);}
+.btn-outline:hover{border-color:var(--gold);color:var(--gold);}
+.btn-red{background:none;border:1px solid rgba(224,53,53,0.4);color:var(--red);}
+.btn-red:hover{background:var(--red-dim);}
+.btn-sm{padding:5px 12px;font-size:11px;}
+
+/* ---- Content ---- */
+.admin-content{padding:28px;}
+
+/* ---- Stats Grid ---- */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:16px;margin-bottom:32px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius2);padding:22px;position:relative;overflow:hidden;}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.stat-card.gold::before{background:linear-gradient(90deg,var(--gold3),var(--gold2));}
+.stat-card.green::before{background:var(--green);}
+.stat-card.red::before{background:var(--red);}
+.stat-card.blue::before{background:#4a9eff;}
+.stat-icon{font-size:24px;margin-bottom:10px;}
+.stat-value{font-family:'Cormorant Garamond',serif;font-size:32px;font-weight:700;color:var(--gold);line-height:1;}
+.stat-label{font-size:10px;color:var(--text3);margin-top:6px;text-transform:uppercase;letter-spacing:1px;}
+.stat-change{font-size:10px;color:var(--green);margin-top:4px;display:flex;align-items:center;gap:3px;}
+
+/* ---- Tables ---- */
+.section-title{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:700;margin-bottom:18px;display:flex;align-items:center;gap:10px;}
+.section-title::before{content:'';width:3px;height:18px;background:linear-gradient(180deg,var(--gold2),var(--gold3));border-radius:2px;flex-shrink:0;}
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius2);overflow:hidden;}
+.data-table{width:100%;border-collapse:collapse;}
+.data-table th{text-align:left;padding:11px 16px;font-size:9px;color:var(--text3);border-bottom:1px solid var(--border2);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;background:var(--surface2);}
+.data-table td{padding:12px 16px;font-size:12px;border-bottom:1px solid var(--border);color:var(--text2);}
+.data-table tr:last-child td{border-bottom:none;}
+.data-table tr:hover td{background:rgba(255,255,255,0.02);}
+.data-table td:first-child{color:var(--text);font-weight:500;}
+.table-actions{display:flex;gap:6px;align-items:center;}
+.badge{display:inline-block;font-size:9px;font-weight:700;padding:2px 8px;border-radius:4px;text-transform:uppercase;letter-spacing:0.5px;}
+.badge-admin{background:var(--gold-subtle);color:var(--gold);border:1px solid var(--border-gold);}
+.badge-user{background:var(--surface3);color:var(--text3);border:1px solid var(--border);}
+.badge-active{background:rgba(0,184,83,0.12);color:var(--green);border:1px solid rgba(0,184,83,0.3);}
+
+/* ---- Search/Filter bar ---- */
+.filter-bar{display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap;}
+.filter-input{background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:8px 14px;border-radius:var(--radius);font-size:12px;font-family:'DM Sans',sans-serif;outline:none;transition:all 0.2s;min-width:220px;}
+.filter-input:focus{border-color:var(--gold);}
+.filter-select{background:var(--surface2);border:1px solid var(--border2);color:var(--text2);padding:8px 12px;border-radius:var(--radius);font-size:12px;font-family:'DM Sans',sans-serif;outline:none;cursor:pointer;min-height:36px;}
+
+/* ---- Modal ---- */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:500;display:none;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px);}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius2);width:100%;max-width:560px;max-height:90vh;display:flex;flex-direction:column;box-shadow:var(--shadow);}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.modal-header h2{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:700;}
+.modal-close{background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;padding:4px 8px;border-radius:var(--radius);transition:all 0.15s;}
+.modal-close:hover{color:var(--text);background:var(--surface3);}
+.modal-body{padding:22px;overflow-y:auto;flex:1;}
+.modal-footer{padding:16px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;flex-shrink:0;}
+.form-group{margin-bottom:16px;}
+.form-group label{display:block;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:7px;}
+.form-control{width:100%;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:10px 14px;border-radius:var(--radius);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;transition:all 0.2s;}
+.form-control:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,168,76,0.15);}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+
+/* ---- Toast ---- */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--border2);border-left:3px solid var(--gold3);color:var(--text);padding:12px 18px;border-radius:var(--radius);font-size:13px;z-index:1000;transform:translateY(60px);opacity:0;transition:all 0.3s;box-shadow:var(--shadow);}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.success{border-left-color:var(--green);color:var(--green);}
+.toast.error{border-left-color:var(--red);color:var(--red);}
+
+/* ---- Loader ---- */
+.loader{display:inline-block;width:22px;height:22px;border:2px solid var(--border2);border-top-color:var(--gold);border-radius:50%;animation:spin 0.75s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.page-loader{display:flex;justify-content:center;padding:64px;}
+
+/* ---- Page views ---- */
+.admin-page{display:none;}
+.admin-page.active{display:block;}
+
+/* ---- Pagination ---- */
+.pagination{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:16px 0;}
+.page-btn{background:none;border:1px solid var(--border2);color:var(--text2);padding:6px 12px;border-radius:var(--radius);font-size:11px;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all 0.15s;}
+.page-btn:hover{border-color:var(--gold);color:var(--gold);}
+.page-btn.active{background:var(--gold-subtle);border-color:var(--gold);color:var(--gold);}
+.upload-progress-wrap{margin-top:8px;}
+.upload-progress-bar{height:3px;background:var(--surface3);border-radius:2px;overflow:hidden;}
+.upload-progress-fill{height:100%;background:linear-gradient(90deg,var(--gold3),var(--gold2));border-radius:2px;transition:width 0.25s ease;width:0%;}
+.upload-progress-text{font-size:10px;color:var(--text3);margin-top:4px;}
+
+/* ---- Confirm Modal ---- */
+.confirm-modal-inner{text-align:center;padding:10px;}
+.confirm-modal-inner h3{font-family:'Cormorant Garamond',serif;font-size:22px;margin-bottom:8px;}
+
+/* ---- Activity Feed ---- */
+.activity-feed{display:flex;flex-direction:column;gap:0;}
+.activity-item{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);}
+.activity-item:last-child{border-bottom:none;}
+.activity-dot{width:8px;height:8px;border-radius:50%;background:var(--gold);flex-shrink:0;margin-top:4px;}
+.activity-text{font-size:12px;color:var(--text2);line-height:1.55;}
+.activity-time{font-size:10px;color:var(--text3);margin-top:2px;}
+
+/* ---- Responsive ---- */
+@media(max-width:768px){
+  .admin-layout{grid-template-columns:1fr;}
+  .admin-sidebar{position:fixed;left:-240px;z-index:200;transition:left 0.3s;}
+  .admin-sidebar.open{left:0;}
+  .form-row{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- AUTH SCREEN -->
+<div id="authScreen" class="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">KWT NEWS HUB</div>
+    <div class="auth-sub">kwtnews.com</div>
+    <div class="auth-badge">🔒 Admin Access Only</div>
+    <div class="form-group">
+      <label>Admin Email</label>
+      <input class="form-control" type="email" id="adminEmail" placeholder="admin@kwtnews.com">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input class="form-control" type="password" id="adminPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter')doAdminLogin()">
+    </div>
+    <button class="btn btn-gold" style="width:100%;padding:12px;margin-top:6px;" onclick="doAdminLogin()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+      Sign In to Admin
+    </button>
+    <p style="font-size:11px;color:var(--text3);margin-top:16px;line-height:1.6;">
+      Admin access is restricted.<br>Unauthorized attempts are logged.
+    </p>
+    <a href="index.html" style="display:block;margin-top:14px;font-size:11px;color:var(--text3);">← Back to KWT News</a>
+  </div>
+</div>
+
+<!-- ADMIN LAYOUT -->
+<div id="adminApp" style="display:none;" class="admin-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="admin-sidebar" id="adminSidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-name">KWT NEWS HUB</div>
+      <div class="sidebar-brand-sub">kwtnews.com</div>
+      <div class="sidebar-admin-badge">⚙️ Admin Panel</div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="sidebar-section">Overview</div>
+      <button class="nav-item active" onclick="loadAdminPage('dashboard',this)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </button>
+
+      <div class="sidebar-section">Content</div>
+      <button class="nav-item" onclick="loadAdminPage('posts',this)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2"/></svg>
+        All Posts
+      </button>
+      <button class="nav-item" onclick="loadAdminPage('createpost',this)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Create Post
+      </button>
+
+      <div class="sidebar-section">Users</div>
+      <button class="nav-item" onclick="loadAdminPage('users',this)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        All Users
+      </button>
+
+      <div class="sidebar-section">Analytics</div>
+      <button class="nav-item" onclick="loadAdminPage('analytics',this)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        Analytics
+      </button>
+
+      <div class="sidebar-section">Settings</div>
+      <button class="nav-item" onclick="loadAdminPage('settings',this)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l-.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="sidebar-avatar" id="sidebarAvatar">A</div>
+        <div>
+          <div class="sidebar-user-name" id="sidebarName">Admin</div>
+          <div class="sidebar-user-email" id="sidebarEmail"></div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="doAdminLogout()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Sign Out
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="admin-main">
+    <!-- Top Bar -->
+    <div class="admin-topbar">
+      <h1 id="adminPageTitle">Dashboard</h1>
+      <div class="topbar-right">
+        <a href="index.html" class="btn btn-outline btn-sm" target="_blank">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          View Site
+        </a>
+        <button class="btn btn-gold btn-sm" onclick="loadAdminPage('createpost',null)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Post
+        </button>
+      </div>
+    </div>
+
+    <!-- Page Content -->
+    <div id="adminPageContent" class="admin-content">
+      <div class="page-loader"><div class="loader"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Delete Modal -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal" style="max-width:340px;">
+    <div class="modal-body">
+      <div class="confirm-modal-inner">
+        <div style="font-size:40px;margin-bottom:14px;">🗑️</div>
+        <h3>Delete this post?</h3>
+        <p style="font-size:12px;color:var(--text2);margin-bottom:24px;line-height:1.7;">This action cannot be undone. The post will be permanently removed from Firestore.</p>
+        <div style="display:flex;gap:10px;justify-content:center;">
+          <button class="btn btn-outline" onclick="closeModal('confirmModal')">Cancel</button>
+          <button class="btn btn-red" id="confirmDeleteBtn">Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Post Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Edit Post</h2>
+      <button class="modal-close" onclick="closeModal('editModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editId">
+      <div class="form-group">
+        <label>Headline</label>
+        <input class="form-control" type="text" id="editTitle" placeholder="Post headline...">
+      </div>
+      <div class="form-group">
+        <label>Story</label>
+        <textarea class="form-control" id="editContent" style="min-height:140px;resize:vertical;" placeholder="Post content..."></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Category</label>
+          <select class="form-control" id="editCategory" style="cursor:pointer;">
+            <option value="">— Select —</option>
+            <option value="kuwait">🇰🇼 Kuwait</option>
+            <option value="world">🌍 World</option>
+            <option value="business">💼 Business</option>
+            <option value="sports">⚽ Sports</option>
+            <option value="technology">📱 Technology</option>
+            <option value="health">🏥 Health</option>
+            <option value="entertainment">🎬 Entertainment</option>
+            <option value="lifestyle">🏠 Lifestyle</option>
+            <option value="opinion">📝 Opinion</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Image URL</label>
+          <input class="form-control" type="url" id="editImageUrl" placeholder="https://...">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('editModal')">Cancel</button>
+      <button class="btn btn-gold" onclick="saveEditPost()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Save Changes
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Promote User Modal -->
+<div class="modal-overlay" id="promoteModal">
+  <div class="modal" style="max-width:360px;">
+    <div class="modal-header">
+      <h2>Change User Role</h2>
+      <button class="modal-close" onclick="closeModal('promoteModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.7;">Select a new role for <strong id="promoteUserName" style="color:var(--text);">this user</strong>.</p>
+      <input type="hidden" id="promoteUserId">
+      <div style="display:grid;gap:10px;">
+        <button class="btn btn-outline" onclick="setUserRole(document.getElementById('promoteUserId').value,'user')">
+          👤 Regular User
+        </button>
+        <button class="btn btn-gold" onclick="setUserRole(document.getElementById('promoteUserId').value,'admin')">
+          ⚙️ Promote to Admin
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="adminToast"></div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDLRqQ8WRohNDWz_6UgafI7Kn2f8U0KL3c",
+  authDomain: "kwt-news.firebaseapp.com",
+  databaseURL: "https://kwt-news-default-rtdb.firebaseio.com",
+  projectId: "kwt-news",
+  storageBucket: "kwt-news.firebasestorage.app",
+  messagingSenderId: "604704031845",
+  appId: "1:604704031845:web:b835af9ab1872ddd1d728c",
+  measurementId: "G-J161YE3FDP"
+};
+if(!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+/* ---- Cloudinary Config ---- */
+const CLOUDINARY_CLOUD = 'duqq5vfcx';
+const CLOUDINARY_PRESET = 'Kwt news';
+const CLOUDINARY_IMG_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`;
+const CLOUDINARY_VID_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/video/upload`;
+
+let adminUser = null, adminUserData = null;
+let postsCache = {};
+
+/* ---- Toast ---- */
+let toastTimer;
+function toast(msg, type='') {
+  const el = document.getElementById('adminToast');
+  el.textContent = msg;
+  el.className = `toast show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3200);
+}
+
+/* ---- Modal ---- */
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+/* ---- Time Ago ---- */
+function timeAgo(ts) {
+  if(!ts) return '—';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+  if(diff < 60) return 'just now';
+  if(diff < 3600) return `${Math.floor(diff/60)}m ago`;
+  if(diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+  return `${Math.floor(diff/86400)}d ago`;
+}
+function escHtml(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ---- Auth ---- */
+auth.onAuthStateChanged(async user => {
+  if(user) {
+    const doc = await db.collection('users').doc(user.uid).get();
+    const data = doc.exists ? doc.data() : { role:'user', name: user.email.split('@')[0] };
+    if(data.role !== 'admin') {
+      toast('Access denied — Admin only', 'error');
+      setTimeout(() => auth.signOut(), 2000);
+      return;
+    }
+    adminUser = user;
+    adminUserData = data;
+    document.getElementById('authScreen').style.display = 'none';
+    document.getElementById('adminApp').style.display = 'grid';
+    document.getElementById('sidebarAvatar').textContent = (data.name||'A')[0].toUpperCase();
+    document.getElementById('sidebarName').textContent = data.name || 'Admin';
+    document.getElementById('sidebarEmail').textContent = user.email;
+    loadAdminPage('dashboard', document.querySelector('.nav-item.active'));
+  } else {
+    adminUser = null;
+    document.getElementById('adminApp').style.display = 'none';
+    document.getElementById('authScreen').style.display = 'flex';
+  }
+});
+
+async function doAdminLogin() {
+  const email = document.getElementById('adminEmail').value.trim();
+  const pass = document.getElementById('adminPassword').value;
+  if(!email || !pass) { toast('Email and password required', 'error'); return; }
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function doAdminLogout() {
+  await auth.signOut();
+  toast('Signed out');
+}
+
+/* ---- Navigation ---- */
+function loadAdminPage(page, btn) {
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  else {
+    const matching = document.querySelector(`.nav-item[onclick*="'${page}'"]`);
+    if(matching) matching.classList.add('active');
+  }
+  const titles = { dashboard:'Dashboard', posts:'All Posts', createpost:'Create Post', users:'All Users', analytics:'Analytics', settings:'Settings' };
+  document.getElementById('adminPageTitle').textContent = titles[page] || 'Admin';
+  document.getElementById('adminPageContent').innerHTML = '<div class="page-loader"><div class="loader"></div></div>';
+  const fn = { dashboard:renderDashboard, posts:renderPosts, createpost:renderCreatePost, users:renderUsers, analytics:renderAnalytics, settings:renderSettings };
+  if(fn[page]) fn[page]();
+}
+
+/* ---- DASHBOARD ---- */
+async function renderDashboard() {
+  const [postsSnap, usersSnap] = await Promise.all([
+    db.collection('posts').get(),
+    db.collection('users').get()
+  ]);
+  let totalLikes = 0, totalViews = 0;
+  const recentPosts = [];
+  postsSnap.docs.forEach(d => {
+    const p = { id:d.id, ...d.data() };
+    postsCache[d.id] = p;
+    totalLikes += (p.likes||[]).length;
+    totalViews += p.views || 0;
+    recentPosts.push(p);
+  });
+  recentPosts.sort((a,b) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
+
+  const catCounts = {};
+  postsSnap.docs.forEach(d => {
+    const cat = d.data().category || 'uncategorized';
+    catCounts[cat] = (catCounts[cat]||0)+1;
+  });
+  const topCats = Object.entries(catCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  document.getElementById('adminPageContent').innerHTML = `
+    <div class="stats-grid">
+      <div class="stat-card gold">
+        <div class="stat-icon">📰</div>
+        <div class="stat-value">${postsSnap.size}</div>
+        <div class="stat-label">Total Posts</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-icon">👥</div>
+        <div class="stat-value">${usersSnap.size}</div>
+        <div class="stat-label">Registered Users</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-icon">❤️</div>
+        <div class="stat-value">${totalLikes}</div>
+        <div class="stat-label">Total Likes</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-icon">👁</div>
+        <div class="stat-value">${totalViews.toLocaleString()}</div>
+        <div class="stat-label">Total Views</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;margin-bottom:28px;">
+      <div>
+        <h2 class="section-title">Recent Posts</h2>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Title</th><th>Category</th><th>Likes</th><th>Views</th><th>Date</th><th></th></tr></thead>
+            <tbody>
+              ${recentPosts.slice(0,8).map(p => `
+                <tr>
+                  <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(p.title||'—')}</td>
+                  <td><span class="badge badge-user">${p.category||'—'}</span></td>
+                  <td>${(p.likes||[]).length}</td>
+                  <td>${p.views||0}</td>
+                  <td>${timeAgo(p.createdAt)}</td>
+                  <td class="table-actions">
+                    <button class="btn btn-outline btn-sm" onclick="openEditPost('${p.id}')">Edit</button>
+                    <button class="btn btn-red btn-sm" onclick="confirmDelete('${p.id}')">Delete</button>
+                  </td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <h2 class="section-title">Top Categories</h2>
+        <div class="table-wrap" style="padding:16px;">
+          ${topCats.map(([cat,count]) => `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
+              <span style="font-size:12px;color:var(--text2);text-transform:capitalize;">${cat}</span>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div style="width:80px;height:4px;background:var(--surface3);border-radius:2px;overflow:hidden;">
+                  <div style="width:${Math.round(count/postsSnap.size*100)}%;height:100%;background:var(--gold);"></div>
+                </div>
+                <span style="font-size:12px;color:var(--gold);font-weight:700;min-width:22px;">${count}</span>
+              </div>
+            </div>`).join('')}
+          ${topCats.length === 0 ? '<p style="color:var(--text3);font-size:12px;text-align:center;padding:20px;">No categories yet</p>' : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ---- ALL POSTS ---- */
+let allPosts = [], filteredPosts = [], currentPage = 1;
+const PAGE_SIZE = 15;
+
+async function renderPosts() {
+  const snap = await db.collection('posts').orderBy('createdAt','desc').get();
+  allPosts = snap.docs.map(d => { const p={id:d.id,...d.data()}; postsCache[d.id]=p; return p; });
+  filteredPosts = [...allPosts];
+  renderPostsTable();
+}
+
+function renderPostsTable() {
+  const start = (currentPage-1)*PAGE_SIZE;
+  const page = filteredPosts.slice(start, start+PAGE_SIZE);
+  const totalPages = Math.ceil(filteredPosts.length/PAGE_SIZE);
+
+  document.getElementById('adminPageContent').innerHTML = `
+    <div class="filter-bar">
+      <input class="filter-input" type="text" placeholder="Search posts..." oninput="filterPosts(this.value)" id="postSearch">
+      <select class="filter-select" onchange="filterPostsCat(this.value)">
+        <option value="">All Categories</option>
+        <option value="kuwait">Kuwait</option>
+        <option value="world">World</option>
+        <option value="business">Business</option>
+        <option value="sports">Sports</option>
+        <option value="technology">Technology</option>
+        <option value="health">Health</option>
+        <option value="entertainment">Entertainment</option>
+        <option value="lifestyle">Lifestyle</option>
+        <option value="opinion">Opinion</option>
+      </select>
+      <span style="font-size:11px;color:var(--text3);margin-left:auto;">${filteredPosts.length} posts</span>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Title</th><th>Author</th><th>Category</th><th>Likes</th><th>Views</th><th>Date</th><th>Actions</th></tr></thead>
+        <tbody>
+          ${page.map(p => `
+            <tr>
+              <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(p.title)}">${escHtml(p.title||'—')}</td>
+              <td style="font-size:11px;color:var(--text3);">${p.authorId ? p.authorId.slice(0,8)+'…' : 'N/A'}</td>
+              <td><span class="badge badge-user">${p.category||'—'}</span></td>
+              <td>${(p.likes||[]).length}</td>
+              <td>${p.views||0}</td>
+              <td>${timeAgo(p.createdAt)}</td>
+              <td class="table-actions">
+                <button class="btn btn-outline btn-sm" onclick="openEditPost('${p.id}')">Edit</button>
+                <button class="btn btn-red btn-sm" onclick="confirmDelete('${p.id}')">Delete</button>
+              </td>
+            </tr>`).join('')}
+          ${page.length === 0 ? '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:40px;">No posts found</td></tr>' : ''}
+        </tbody>
+      </table>
+    </div>
+    <div class="pagination">
+      <button class="page-btn" onclick="gotoPage(${currentPage-1})" ${currentPage<=1?'disabled style="opacity:0.4;"':''}>← Prev</button>
+      ${Array.from({length:totalPages},(_, i)=>`<button class="page-btn ${i+1===currentPage?'active':''}" onclick="gotoPage(${i+1})">${i+1}</button>`).join('')}
+      <button class="page-btn" onclick="gotoPage(${currentPage+1})" ${currentPage>=totalPages?'disabled style="opacity:0.4;"':''}>Next →</button>
+    </div>`;
+}
+
+function filterPosts(q) {
+  q = q.toLowerCase();
+  filteredPosts = q ? allPosts.filter(p => (p.title||'').toLowerCase().includes(q)||(p.content||'').toLowerCase().includes(q)) : [...allPosts];
+  currentPage = 1;
+  renderPostsTable();
+}
+function filterPostsCat(cat) {
+  filteredPosts = cat ? allPosts.filter(p => p.category===cat) : [...allPosts];
+  currentPage = 1;
+  renderPostsTable();
+}
+function gotoPage(n) {
+  const max = Math.ceil(filteredPosts.length/PAGE_SIZE);
+  if(n<1||n>max) return;
+  currentPage = n;
+  renderPostsTable();
+}
+
+/* ---- CREATE POST ---- */
+function renderCreatePost() {
+  document.getElementById('adminPageContent').innerHTML = `
+    <div style="max-width:680px;">
+      <div class="form-group">
+        <label>Headline <span style="color:var(--red);">*</span></label>
+        <input class="form-control" type="text" id="cpTitle" placeholder="Write a compelling headline…">
+      </div>
+      <div class="form-group">
+        <label>Story <span style="color:var(--red);">*</span></label>
+        <textarea class="form-control" id="cpContent" style="min-height:180px;resize:vertical;" placeholder="Full story content…"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Category</label>
+          <select class="form-control" id="cpCategory" style="cursor:pointer;">
+            <option value="">— Select Category —</option>
+            <option value="kuwait">🇰🇼 Kuwait</option>
+            <option value="world">🌍 World</option>
+            <option value="business">💼 Business</option>
+            <option value="sports">⚽ Sports</option>
+            <option value="technology">📱 Technology</option>
+            <option value="health">🏥 Health</option>
+            <option value="entertainment">🎬 Entertainment</option>
+            <option value="lifestyle">🏠 Lifestyle</option>
+            <option value="opinion">📝 Opinion</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Channel (Newspaper)</label>
+          <select class="form-control" id="cpChannel" style="cursor:pointer;">
+            <option value="">— None —</option>
+            <option value="alqabas">Al Qabas</option>
+            <option value="arabtimes">Arab Times</option>
+            <option value="kuwaittimes">Kuwait Times</option>
+            <option value="alrai">Al Rai</option>
+            <option value="alwatan">Al Watan</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Image URL (optional)</label>
+        <input class="form-control" type="url" id="cpImageUrl" placeholder="https://example.com/image.jpg">
+      </div>
+      <div class="form-group">
+        <label>Video URL (optional — YouTube / Vimeo / MP4)</label>
+        <input class="form-control" type="url" id="cpVideoUrl" placeholder="https://youtube.com/watch?v=...">
+      </div>
+      <div style="display:flex;gap:12px;margin-top:6px;">
+        <button class="btn btn-gold" id="cpPublishBtn" onclick="adminSubmitPost()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Publish Post
+        </button>
+        <button class="btn btn-outline" onclick="loadAdminPage('posts',null)">Cancel</button>
+      </div>
+    </div>`;
+}
+
+async function adminSubmitPost() {
+  const title = document.getElementById('cpTitle').value.trim();
+  const content = document.getElementById('cpContent').value.trim();
+  if(!title||!content) { toast('Headline and Story are required', 'error'); return; }
+  const btn = document.getElementById('cpPublishBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="loader" style="width:14px;height:14px;border-width:1.5px;"></span> Publishing…';
+  try {
+    await db.collection('posts').add({
+      title, content,
+      category: document.getElementById('cpCategory').value || '',
+      channel: document.getElementById('cpChannel').value || '',
+      imageUrl: document.getElementById('cpImageUrl').value.trim() || '',
+      videoUrl: document.getElementById('cpVideoUrl').value.trim() || '',
+      mediaType: document.getElementById('cpVideoUrl').value.trim() ? 'video' : (document.getElementById('cpImageUrl').value.trim() ? 'image' : ''),
+      authorId: adminUser.uid,
+      likes: [], views: 0,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    toast('Post published! 🎉', 'success');
+    loadAdminPage('posts', null);
+  } catch(e) {
+    toast('Error: ' + e.message, 'error');
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Publish Post';
+  }
+}
+
+/* ---- EDIT POST ---- */
+function openEditPost(id) {
+  const p = postsCache[id];
+  if(!p) return;
+  document.getElementById('editId').value = id;
+  document.getElementById('editTitle').value = p.title || '';
+  document.getElementById('editContent').value = p.content || '';
+  document.getElementById('editCategory').value = p.category || '';
+  document.getElementById('editImageUrl').value = p.imageUrl || '';
+  openModal('editModal');
+}
+
+async function saveEditPost() {
+  const id = document.getElementById('editId').value;
+  const title = document.getElementById('editTitle').value.trim();
+  const content = document.getElementById('editContent').value.trim();
+  if(!title||!content) { toast('Fields required', 'error'); return; }
+  try {
+    await db.collection('posts').doc(id).update({
+      title, content,
+      category: document.getElementById('editCategory').value,
+      imageUrl: document.getElementById('editImageUrl').value.trim(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    toast('Saved ✓', 'success');
+    closeModal('editModal');
+    renderPosts();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+/* ---- DELETE POST ---- */
+function confirmDelete(id) {
+  openModal('confirmModal');
+  document.getElementById('confirmDeleteBtn').onclick = async () => {
+    try {
+      await db.collection('posts').doc(id).delete();
+      delete postsCache[id];
+      closeModal('confirmModal');
+      toast('Deleted ✓', 'success');
+      renderPosts();
+    } catch(e) { toast(e.message, 'error'); }
+  };
+}
+
+/* ---- USERS ---- */
+async function renderUsers() {
+  const snap = await db.collection('users').get();
+  const users = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+
+  document.getElementById('adminPageContent').innerHTML = `
+    <div class="filter-bar">
+      <input class="filter-input" type="text" placeholder="Search users..." oninput="filterUsersTable(this.value,'${users.map(u=>u.id+':'+u.name+':'+u.email).join('|')}')">
+      <span style="font-size:11px;color:var(--text3);margin-left:auto;">${users.length} users</span>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table" id="usersTable">
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>User ID</th><th>Actions</th></tr></thead>
+        <tbody>
+          ${users.map(u => `
+            <tr>
+              <td>${escHtml(u.name||'—')}</td>
+              <td>${escHtml(u.email||'—')}</td>
+              <td><span class="badge ${u.role==='admin'?'badge-admin':'badge-user'}">${u.role||'user'}</span></td>
+              <td style="font-size:10px;color:var(--text3);font-family:monospace;">${u.id.slice(0,12)}…</td>
+              <td class="table-actions">
+                <button class="btn btn-outline btn-sm" onclick="openPromote('${u.id}','${escHtml(u.name||u.email)}')">Change Role</button>
+              </td>
+            </tr>`).join('')}
+          ${users.length===0 ? '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:40px;">No users found</td></tr>' : ''}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function openPromote(uid, name) {
+  document.getElementById('promoteUserId').value = uid;
+  document.getElementById('promoteUserName').textContent = name;
+  openModal('promoteModal');
+}
+
+async function setUserRole(uid, role) {
+  try {
+    await db.collection('users').doc(uid).update({ role });
+    toast(`Role updated to ${role} ✓`, 'success');
+    closeModal('promoteModal');
+    renderUsers();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+/* ---- ANALYTICS ---- */
+async function renderAnalytics() {
+  const snap = await db.collection('posts').orderBy('views','desc').limit(50).get();
+  const posts = snap.docs.map(d => ({id:d.id,...d.data()}));
+  const totalViews = posts.reduce((s,p) => s+(p.views||0), 0);
+  const totalLikes = posts.reduce((s,p) => s+(p.likes||[]).length, 0);
+  const topPosts = [...posts].sort((a,b)=>(b.views||0)-(a.views||0)).slice(0,10);
+  const topLiked = [...posts].sort((a,b)=>(b.likes||[]).length-(a.likes||[]).length).slice(0,5);
+
+  document.getElementById('adminPageContent').innerHTML = `
+    <div class="stats-grid" style="margin-bottom:28px;">
+      <div class="stat-card blue"><div class="stat-icon">👁</div><div class="stat-value">${totalViews.toLocaleString()}</div><div class="stat-label">Total Views</div></div>
+      <div class="stat-card red"><div class="stat-icon">❤️</div><div class="stat-value">${totalLikes}</div><div class="stat-label">Total Likes</div></div>
+      <div class="stat-card gold"><div class="stat-icon">📊</div><div class="stat-value">${posts.length > 0 ? Math.round(totalViews/posts.length) : 0}</div><div class="stat-label">Avg Views / Post</div></div>
+      <div class="stat-card green"><div class="stat-icon">💬</div><div class="stat-value">—</div><div class="stat-label">Total Comments</div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;">
+      <div>
+        <h2 class="section-title">Top Posts by Views</h2>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>#</th><th>Title</th><th>Views</th><th>Likes</th></tr></thead>
+            <tbody>
+              ${topPosts.map((p,i) => `
+                <tr>
+                  <td style="color:var(--gold);font-weight:700;">${i+1}</td>
+                  <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(p.title||'—')}</td>
+                  <td><strong>${p.views||0}</strong></td>
+                  <td>${(p.likes||[]).length}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <h2 class="section-title">Most Liked</h2>
+        <div class="table-wrap" style="padding:16px;">
+          ${topLiked.map((p,i) => `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
+              <span style="font-size:12px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px;">${escHtml(p.title||'—')}</span>
+              <span style="font-size:12px;color:var(--red);font-weight:700;margin-left:8px;">❤️ ${(p.likes||[]).length}</span>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ---- SETTINGS ---- */
+function renderSettings() {
+  document.getElementById('adminPageContent').innerHTML = `
+    <div style="max-width:600px;">
+      <h2 class="section-title">Site Settings</h2>
+      <div class="table-wrap" style="padding:22px;margin-bottom:24px;">
+        <h3 style="font-family:'Cormorant Garamond',serif;font-size:18px;margin-bottom:16px;">Breaking Ticker</h3>
+        <div class="form-group">
+          <label>Ticker Items (one per line)</label>
+          <textarea class="form-control" id="tickerText" style="min-height:130px;resize:vertical;" placeholder="Kuwait Airways announces new routes…&#10;Kuwait Oil Company reports record quarter…"></textarea>
+        </div>
+        <button class="btn btn-gold btn-sm" onclick="toast('Ticker settings saved (implement with Firestore settings collection)','success')">Save Ticker</button>
+      </div>
+
+      <div class="table-wrap" style="padding:22px;margin-bottom:24px;">
+        <h3 style="font-family:'Cormorant Garamond',serif;font-size:18px;margin-bottom:16px;">Firebase Indexes Required</h3>
+        <p style="font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:12px;">Add these composite indexes in Firebase Console → Firestore → Indexes:</p>
+        ${[
+          ['posts', 'category ASC, createdAt DESC'],
+          ['posts', 'channel ASC, createdAt DESC'],
+          ['posts', 'authorId ASC, createdAt DESC'],
+          ['posts', 'views DESC (single field)'],
+        ].map(([col,idx]) => `
+          <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);">
+            <span class="badge badge-admin">${col}</span>
+            <span style="font-size:11px;color:var(--text2);font-family:monospace;">${idx}</span>
+          </div>`).join('')}
+      </div>
+
+      <div class="table-wrap" style="padding:22px;">
+        <h3 style="font-family:'Cormorant Garamond',serif;font-size:18px;margin-bottom:16px;">Danger Zone</h3>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:14px;">Irreversible actions. Proceed with extreme caution.</p>
+        <button class="btn btn-red" onclick="toast('This feature is disabled for safety. Manage data via Firebase Console.','error')">
+          🗑️ Bulk Delete All Posts
+        </button>
+      </div>
+    </div>`;
+}
+
+/* ---- Filter Users (inline) ---- */
+function filterUsersTable(q, data) {}
+
+/* ---- Cloudinary Upload Helpers (Admin) ---- */
+function adminUploadImage(file) {
+  if(!file) return;
+  if(file.size > 10*1024*1024) { toast('Image too large (max 10 MB)','error'); return; }
+  const prog = document.getElementById('adminImgProgress');
+  const fill = document.getElementById('adminImgFill');
+  const txt  = document.getElementById('adminImgTxt');
+  prog.style.display = 'block';
+  fill.style.width = '5%';
+  txt.textContent = 'Uploading image…';
+
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('upload_preset', CLOUDINARY_PRESET);
+
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', CLOUDINARY_IMG_URL, true);
+  xhr.upload.onprogress = e => {
+    if(e.lengthComputable) {
+      const pct = Math.round(e.loaded/e.total*90);
+      fill.style.width = pct+'%';
+      txt.textContent = `Uploading… ${pct}%`;
+    }
+  };
+  xhr.onload = () => {
+    if(xhr.status === 200) {
+      const res = JSON.parse(xhr.responseText);
+      fill.style.width = '100%';
+      txt.textContent = 'Upload complete ✓';
+      document.getElementById('cpImageUrl').value = res.secure_url;
+      document.getElementById('adminImgPreviewEl').src = res.secure_url;
+      document.getElementById('adminImgPreview').style.display = 'block';
+      setTimeout(() => { prog.style.display = 'none'; }, 1000);
+      toast('Image uploaded ✓','success');
+    } else {
+      const err = JSON.parse(xhr.responseText);
+      txt.textContent = 'Failed';
+      toast('Upload failed: '+(err.error?.message||'error'),'error');
+    }
+  };
+  xhr.onerror = () => toast('Network error','error');
+  xhr.send(fd);
+}
+
+function adminUploadVideo(file) {
+  if(!file) return;
+  if(file.size > 100*1024*1024) { toast('Video too large (max 100 MB)','error'); return; }
+  const prog = document.getElementById('adminVidProgress');
+  const fill = document.getElementById('adminVidFill');
+  const txt  = document.getElementById('adminVidTxt');
+  prog.style.display = 'block';
+  fill.style.width = '5%';
+  txt.textContent = 'Uploading video…';
+
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('upload_preset', CLOUDINARY_PRESET);
+  fd.append('resource_type','video');
+
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', CLOUDINARY_VID_URL, true);
+  xhr.upload.onprogress = e => {
+    if(e.lengthComputable) {
+      const pct = Math.round(e.loaded/e.total*90);
+      fill.style.width = pct+'%';
+      txt.textContent = `Uploading video… ${pct}%`;
+    }
+  };
+  xhr.onload = () => {
+    if(xhr.status === 200) {
+      const res = JSON.parse(xhr.responseText);
+      fill.style.width = '100%';
+      txt.textContent = 'Upload complete ✓';
+      document.getElementById('cpVideoUrl').value = res.secure_url;
+      setTimeout(() => { prog.style.display = 'none'; }, 1000);
+      toast('Video uploaded ✓','success');
+    } else {
+      const err = JSON.parse(xhr.responseText);
+      txt.textContent = 'Failed';
+      toast('Video upload failed: '+(err.error?.message||'error'),'error');
+    }
+  };
+  xhr.onerror = () => toast('Network error','error');
+  xhr.send(fd);
+}
+</script>
+</body>
+  </html>

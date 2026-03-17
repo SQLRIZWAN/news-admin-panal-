@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>KWT News — Admin Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.6/babel.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#080f1e;color:#e2e8f0;font-family:'Inter',sans-serif;min-height:100vh}
+    ::-webkit-scrollbar{width:6px;height:6px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:#2a3a5c;border-radius:4px}
+    ::-webkit-scrollbar-thumb:hover{background:#F5A623}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}
+    @keyframes shimmer{0%{background-position:-800px 0}100%{background-position:800px 0}}
+    .fade-in{animation:fadeIn .3s ease forwards}
+    .live-dot{animation:pulse-dot 1.5s ease infinite}
+    .skeleton{animation:shimmer 1.6s infinite linear;background:linear-gradient(to right,#0f1e36 4%,#1a2d4a 25%,#0f1e36 36%);background-size:800px 100%}
+    .font-syne{font-family:'Syne',sans-serif}
+    .font-mono{font-family:'JetBrains Mono',monospace}
+    .glass{background:rgba(255,255,255,0.03);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.07)}
+    .card{background:#0d1b33;border:1px solid #1e2f4a;border-radius:14px}
+    .card-hover:hover{border-color:#F5A623/40;transform:translateY(-1px);transition:all .2s}
+    .btn-primary{background:#F5A623;color:#080f1e;font-weight:700;border:none;border-radius:10px;cursor:pointer;transition:all .2s}
+    .btn-primary:hover{background:#ffb830;transform:translateY(-1px);box-shadow:0 4px 16px rgba(245,166,35,.35)}
+    .btn-ghost{background:transparent;color:#94a3b8;border:1px solid #1e2f4a;border-radius:10px;cursor:pointer;transition:all .2s}
+    .btn-ghost:hover{border-color:#F5A623;color:#F5A623}
+    .btn-danger{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.25);border-radius:8px;cursor:pointer;transition:all .2s}
+    .btn-danger:hover{background:rgba(239,68,68,.2);border-color:#f87171}
+    .input{background:#0a1628;border:1px solid #1e2f4a;border-radius:10px;color:#e2e8f0;font-family:'Inter',sans-serif;transition:border .2s}
+    .input:focus{outline:none;border-color:#F5A623;box-shadow:0 0 0 3px rgba(245,166,35,.1)}
+    .input::placeholder{color:#4a5568}
+    .badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600}
+    .nav-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:500;color:#64748b;transition:all .2s;border:none;background:transparent;width:100%;text-align:left}
+    .nav-item:hover{background:rgba(245,166,35,.08);color:#F5A623}
+    .nav-item.active{background:rgba(245,166,35,.15);color:#F5A623;font-weight:600}
+    .table-row:hover{background:rgba(255,255,255,.02)}
+    .toggle{position:relative;width:40px;height:22px;border-radius:11px;cursor:pointer;transition:background .25s;flex-shrink:0;border:none}
+    .toggle-thumb{position:absolute;top:3px;width:16px;height:16px;border-radius:50%;background:white;transition:left .25s;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+    .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px}
+    .modal{background:#0d1b33;border:1px solid #1e2f4a;border-radius:20px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto}
+    .stat-card{background:linear-gradient(135deg,#0d1b33,#0f2040);border:1px solid #1e2f4a;border-radius:16px;padding:20px;position:relative;overflow:hidden}
+    .stat-card::before{content:'';position:absolute;top:-30px;right:-30px;width:100px;height:100px;border-radius:50%;opacity:.06}
+    select.input option{background:#0d1b33;color:#e2e8f0}
+    textarea.input{resize:vertical;min-height:90px}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef, useMemo } = React;
+const { createRoot } = ReactDOM;
+
+// ── Firebase ──────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey:"AIzaSyDLRqQ8WRohNDWz_6UgafI7Kn2f8U0KL3c",
+  authDomain:"kwt-news.firebaseapp.com",
+  projectId:"kwt-news",
+  storageBucket:"kwt-news.firebasestorage.app",
+  messagingSenderId:"604704031845",
+  appId:"1:604704031845:web:b835af9ab1872ddd1d728c"
+};
+const app = firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+try{ db.settings({experimentalForceLongPolling:true,merge:true}); }catch(e){}
+
+const CLOUDINARY = { cloudName:'duqq5vfcx', uploadPreset:'Kwt news', uploadUrl:'https://api.cloudinary.com/v1_1/duqq5vfcx/image/upload' };
+const AD_POSITIONS = ['top_banner','in_feed','sidebar_top','sidebar_bottom','footer'];
+
+// ── Icons ──────────────────────────────────────────────────────
+const Icon = ({name,size=18,color='currentColor'}) => {
+  const icons = {
+    dashboard:<><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
+    news:<><path d="M4 6h16M4 10h16M4 14h10"/><rect x="2" y="3" width="20" height="18" rx="2"/></>,
+    ads:<><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></>,
+    comments:<><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></>,
+    users:<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
+    bell:<><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></>,
+    settings:<><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></>,
+    logout:<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>,
+    plus:<><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>,
+    edit:<><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></>,
+    trash:<><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></>,
+    search:<><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>,
+    eye:<><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>,
+    send:<><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></>,
+    upload:<><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></>,
+    close:<><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>,
+    ban:<><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></>,
+    check:<><polyline points="20 6 9 17 4 12"/></>,
+    warn:<><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></>,
+    refresh:<><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-8.07"/></>,
+    star:<><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></>,
+    img:<><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></>,
+  };
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{icons[name]}</svg>;
+};
+
+// ── Helpers ────────────────────────────────────────────────────
+const fmt = (n) => (n||0).toLocaleString();
+const timeAgo = (d) => {
+  if(!d) return '—';
+  const s = Math.floor((Date.now()-(d instanceof Date?d:d.toDate?.()||new Date(d)))/1000);
+  if(s<60) return 'Just now';
+  if(s<3600) return Math.floor(s/60)+'m ago';
+  if(s<86400) return Math.floor(s/3600)+'h ago';
+  return Math.floor(s/86400)+'d ago';
+};
+const fmtDate = (d) => {
+  if(!d) return '—';
+  const dt = d instanceof Date?d:d.toDate?.()||new Date(d);
+  return dt.toLocaleDateString('en-KW',{day:'2-digit',month:'short',year:'numeric'});
+};
+
+// ── Toast ──────────────────────────────────────────────────────
+const useToast = () => {
+  const [toasts,setToasts] = useState([]);
+  const add = useCallback((msg,type='success')=>{
+    const id=Date.now();
+    setToasts(p=>[...p,{id,msg,type}]);
+    setTimeout(()=>setToasts(p=>p.filter(t=>t.id!==id)),3500);
+  },[]);
+  const Toast = () => (
+    <div style={{position:'fixed',bottom:24,right:24,zIndex:999,display:'flex',flexDirection:'column',gap:8}}>
+      {toasts.map(t=>(
+        <div key={t.id} className="fade-in" style={{padding:'12px 18px',borderRadius:12,fontSize:13,fontWeight:600,display:'flex',alignItems:'center',gap:10,boxShadow:'0 8px 32px rgba(0,0,0,.5)',background:t.type==='success'?'#16a34a':t.type==='error'?'#dc2626':'#0d1b33',border:`1px solid ${t.type==='success'?'#22c55e':t.type==='error'?'#ef4444':'#F5A623'}`,color:'white',minWidth:220}}>
+          <Icon name={t.type==='success'?'check':t.type==='error'?'close':'bell'} size={15}/>
+          {t.msg}
+        </div>
+      ))}
+    </div>
+  );
+  return {add, Toast};
+};
+
+// ── Confirm Dialog ─────────────────────────────────────────────
+const Confirm = ({msg,onYes,onNo}) => (
+  <div className="modal-bg">
+    <div className="card fade-in" style={{width:360,padding:28}}>
+      <div style={{display:'flex',gap:14,alignItems:'flex-start',marginBottom:20}}>
+        <div style={{width:40,height:40,borderRadius:10,background:'rgba(239,68,68,.12)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+          <Icon name="warn" size={20} color="#f87171"/>
+        </div>
+        <div><p style={{fontWeight:700,fontSize:15,marginBottom:4}}>Are you sure?</p><p style={{color:'#64748b',fontSize:13,lineHeight:1.5}}>{msg}</p></div>
+      </div>
+      <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
+        <button className="btn-ghost" style={{padding:'8px 18px',fontSize:13}} onClick={onNo}>Cancel</button>
+        <button className="btn-danger" style={{padding:'8px 18px',fontSize:13,fontWeight:700}} onClick={onYes}>Delete</button>
+      </div>
+    </div>
+  </div>
+);
+
+// ── Login Page ─────────────────────────────────────────────────
+const LoginPage = ({onLogin}) => {
+  const [email,setEmail] = useState('');
+  const [pass,setPass] = useState('');
+  const [err,setErr] = useState('');
+  const [loading,setLoading] = useState(false);
+  const submit = async (e) => {
+    e.preventDefault(); setErr(''); setLoading(true);
+    try {
+      const cred = await auth.signInWithEmailAndPassword(email,pass);
+      onLogin(cred.user);
+    } catch(e){ setErr(e.message); }
+    finally{ setLoading(false); }
+  };
+  return (
+    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'radial-gradient(ellipse at 20% 50%, #0d2040 0%, #080f1e 60%)'}}>
+      <div style={{width:380,padding:'0 16px'}}>
+        <div style={{textAlign:'center',marginBottom:36}}>
+          <div style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:60,height:60,borderRadius:16,background:'#F5A623',marginBottom:16}}>
+            <span style={{fontFamily:'Syne,sans-serif',fontWeight:800,fontSize:16,color:'#080f1e'}}>KWT</span>
+          </div>
+          <h1 style={{fontFamily:'Syne,sans-serif',fontSize:26,fontWeight:800,letterSpacing:'-.02em'}}>Admin Panel</h1>
+          <p style={{color:'#4a5568',fontSize:13,marginTop:4}}>KWT News Management System</p>
+        </div>
+        <div className="card" style={{padding:28}}>
+          {err && <div style={{padding:'10px 14px',background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.25)',borderRadius:10,color:'#f87171',fontSize:13,marginBottom:16}}>{err}</div>}
+          <form onSubmit={submit} style={{display:'flex',flexDirection:'column',gap:14}}>
+            <div>
+              <label style={{fontSize:12,fontWeight:600,color:'#64748b',display:'block',marginBottom:6}}>EMAIL</label>
+              <input className="input" type="email" placeholder="admin@kwtnews.com" value={email} onChange={e=>setEmail(e.target.value)} required style={{width:'100%',padding:'11px 14px',fontSize:14}}/>
+            </div>
+            <div>
+              <label style={{fontSize:12,fontWeight:600,color:'#64748b',display:'block',marginBottom:6}}>PASSWORD</label>
+              <input className="input" type="password" placeholder="••••••••" value={pass} onChange={e=>setPass(e.target.value)} required style={{width:'100%',padding:'11px 14px',fontSize:14}}/>
+            </div>
+            <button className="btn-primary" type="submit" disabled={loading} style={{padding:'12px',fontSize:14,marginTop:4}}>
+              {loading?'Signing in…':'Sign In to Dashboard'}
+            </button>
+          </form>
+        </div>
+        <p style={{textAlign:'center',fontSize:11,color:'#2a3a5c',marginTop:20}}>Restricted access · KWT News © 2026</p>
+      </div>
+    </div>
+  );
+};
+
+// ── Dashboard ──────────────────────────────────────────────────
+const Dashboard = () => {
+  const [stats,setStats] = useState({news:0,users:0,comments:0,adImpressions:0,adClicks:0,breaking:0});
+  const [recentNews,setRecentNews] = useState([]);
+  const [loading,setLoading] = useState(true);
+  useEffect(()=>{
+    const unsubs=[];
+    unsubs.push(db.collection('news').onSnapshot(s=>setStats(p=>({...p,news:s.size,breaking:s.docs.filter(d=>d.data().isBreaking).length}))));
+    unsubs.push(db.collection('users').onSnapshot(s=>setStats(p=>({...p,users:s.size}))));
+    unsubs.push(db.collection('comments').onSnapshot(s=>setStats(p=>({...p,comments:s.size}))));
+    unsubs.push(db.collection('ads').onSnapshot(s=>{
+      let imp=0,cl=0;
+      s.docs.forEach(d=>{imp+=d.data().impressions||0;cl+=d.data().clicks||0;});
+      setStats(p=>({...p,adImpressions:imp,adClicks:cl}));
+    }));
+    db.collection('news').orderBy('timestamp','desc').limit(5).onSnapshot(s=>{
+      setRecentNews(s.docs.map(d=>({id:d.id,...d.data()})));
+      setLoading(false);
+    });
+    return ()=>unsubs.forEach(u=>u());
+  },[]);
+
+  const cards = [
+    {label:'Total News',value:fmt(stats.news),icon:'news',color:'#F5A623',sub:`${stats.breaking} Breaking`},
+    {label:'Registered Users',value:fmt(stats.users),icon:'users',color:'#38bdf8',sub:'All platforms'},
+    {label:'Comments',value:fmt(stats.comments),icon:'comments',color:'#a78bfa',sub:'All posts'},
+    {label:'Ad Impressions',value:fmt(stats.adImpressions),icon:'eye',color:'#4ade80',sub:`${fmt(stats.adClicks)} clicks`},
+  ];
+  return (
+    <div className="fade-in">
+      <div style={{marginBottom:28}}>
+        <h2 style={{fontFamily:'Syne,sans-serif',fontSize:22,fontWeight:800,letterSpacing:'-.02em',marginBottom:4}}>Dashboard</h2>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <div className="live-dot" style={{width:7,height:7,borderRadius:'50%',background:'#22c55e'}}></div>
+          <span style={{fontSize:12,color:'#22c55e',fontWeight:600}}>Live · Real-time data</span>
+        </div>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:16,marginBottom:28}}>
+        {cards.map((c,i)=>(
+          <div key={i} className="stat-card" style={{cursor:'default'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:14}}>
+              <div style={{width:40,height:40,borderRadius:10,background:`${c.color}18`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <Icon name={c.icon} size={18} color={c.color}/>
+              </div>
+              <div className="live-dot" style={{width:6,height:6,borderRadius:'50%',background:c.color,marginTop:4}}></div>
+            </div>
+            <div style={{fontFamily:'Syne,sans-serif',fontSize:30,fontWeight:800,letterSpacing:'-.03em',color:c.color,marginBottom:4}}>{c.value}</div>
+            <div style={{fontSize:13,fontWeight:600,color:'#e2e8f0',marginBottom:2}}>{c.label}</div>
+            <div style={{fontSize:11,color:'#4a5568'}}>{c.sub}</div>
+          </div>
+        ))}
+      </div>
+      <div className="card" style={{padding:'0 0 8px'}}>
+        <div style={{padding:'16px 20px',borderBottom:'1px solid #1e2f4a',display:'flex',alignItems:'center',gap:10}}>
+          <Icon name="news" size={16} color="#F5A623"/><span style={{fontWeight:700,fontSize:14}}>Recent News</span>
+        </div>
+        {loading?[1,2,3].map(i=><div key={i} style={{padding:'14px 20px',borderBottom:'1px solid #1e2f4a'}}><div className="skeleton" style={{height:14,borderRadius:6,width:'60%',marginBottom:6}}></div><div className="skeleton" style={{height:11,borderRadius:6,width:'30%'}}></div></div>):
+        recentNews.map(n=>(
+          <div key={n.id} className="table-row" style={{padding:'13px 20px',borderBottom:'1px solid #0f1e36',display:'flex',alignItems:'center',gap:12}}>
+            <div style={{width:36,height:36,borderRadius:8,background:'#0a1628',overflow:'hidden',flexShrink:0}}>
+              {n.imageUrl&&<img src={n.imageUrl} style={{width:'100%',height:'100%',objectFit:'cover'}} loading="lazy"/>}
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <p style={{fontSize:13,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginBottom:2}}>{n.title||'Untitled'}</p>
+              <p style={{fontSize:11,color:'#4a5568'}}>{fmtDate(n.timestamp)} · {n.category||'—'}</p>
+            </div>
+            {n.isBreaking&&<span className="badge" style={{background:'rgba(239,68,68,.15)',color:'#f87171',border:'1px solid rgba(239,68,68,.25)'}}>BREAKING</span>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ── Image Upload ───────────────────────────────────────────────
+const ImageUpload = ({value,onChange,label='Image'}) => {
+  const [uploading,setUploading] = useState(false);
+  const ref = useRef();
+  const upload = async (file) => {
+    if(!file)return;
+    setUploading(true);
+    try{
+      const fd = new FormData();
+      fd.append('file',file);
+      fd.append('upload_preset',CLOUDINARY.uploadPreset);
+      const res = await fetch(CLOUDINARY.uploadUrl,{method:'POST',body:fd});
+      const data = await res.json();
+      onChange(data.secure_url);
+    }catch(e){console.error(e);}
+    finally{setUploading(false);}
+  };
+  return (
+    <div>
+      <label style={{fontSize:12,fontWeight:600,color:'#64748b',display:'block',marginBottom:6}}>{label.toUpperCase()}</label>
+      <div style={{border:'2px dashed #1e2f4a',borderRadius:12,padding:16,cursor:'pointer',transition:'border .2s',background:'#080f1e'}} onClick={()=>ref.current?.click()} onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor='#F5A623'}} onDragLeave={e=>{e.currentTarget.style.borderColor='#1e2f4a'}} onDrop={e=>{e.preventDefault();upload(e.dataTransfer.files[0]);}}>
+        <input ref={ref} type="file" accept="image/*,video/*" style={{display:'none'}} onChange={e=>upload(e.target.files[0])}/>
+        {uploading?<div style={{textAlign:'center',padding:'8px 0'}}><div style={{width:32,height:32,border:'3px solid #F5A623',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 1s linear infinite',margin:'0 auto 8px'}}></div><p style={{fontSize:12,color:'#64748b'}}>Uploading…</p></div>
+        :value?<div style={{display:'flex',gap:12,alignItems:'center'}}>
+          <img src={value} style={{width:60,height:48,objectFit:'cover',borderRadius:8}}/>
+          <div style={{flex:1}}><p style={{fontSize:12,color:'#22c55e',fontWeight:600,marginBottom:2}}>✓ Uploaded</p><p style={{fontSize:11,color:'#4a5568',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{value}</p></div>
+          <button onClick={e=>{e.stopPropagation();onChange('');}} style={{color:'#f87171',background:'none',border:'none',cursor:'pointer'}}><Icon name="close" size={14}/></button>
+        </div>
+        :<div style={{textAlign:'center',padding:'8px 0'}}><Icon name="upload" size={24} color="#2a3a5c"/><p style={{fontSize:13,color:'#4a5568',marginTop:8}}>Click or drag to upload</p><p style={{fontSize:11,color:'#2a3a5c',marginTop:2}}>Images & Videos supported</p></div>}
+      </div>
+    </div>
+  );
+};
+
+// ── News Manager ───────────────────────────────────────────────
+const BLANK_NEWS = {title:'',summary:'',content:'',imageUrl:'',category:'kuwait',source:'KWT News',sourceLogo:'',readTime:'3 min read',isBreaking:false,mediaType:'image'};
+const NewsManager = ({toast}) => {
+  const [news,setNews] = useState([]);
+  const [loading,setLoading] = useState(true);
+  const [modal,setModal] = useState(false);
+  const [editing,setEditing] = useState(null);
+  const [form,setForm] = useState(BLANK_NEWS);
+  const [saving,setSaving] = useState(false);
+  const [confirm,setConfirm] = useState(null);
+  const [search,setSearch] = useState('');
+  const [filterCat,setFilterCat] = useState('all');
+
+  useEffect(()=>{
+    const u = db.collection('news').orderBy('timestamp','desc').limit(50).onSnapshot(s=>{
+      setNews(s.docs.map(d=>({id:d.id,...d.data()})));
+      setLoading(false);
+    });
+    return ()=>u();
+  },[]);
+
+  const openAdd = () => { setEditing(null); setForm(BLANK_NEWS); setModal(true); };
+  const openEdit = (n) => { setEditing(n.id); setForm({...BLANK_NEWS,...n}); setModal(true); };
+  const close = () => { setModal(false); setEditing(null); setForm(BLANK_NEWS); };
+
+  const save = async () => {
+    if(!form.title.trim()||!form.summary.trim()){ toast.add('Title and Summary are required','error'); return; }
+    setSaving(true);
+    try{
+      const data = {...form, timestamp: firebase.firestore.FieldValue.serverTimestamp()};
+      if(editing){ await db.collection('news').doc(editing).update(data); toast.add('News updated!'); }
+      else { await db.collection('news').add(data); toast.add('News published!'); }
+      close();
+    }catch(e){ toast.add(e.message,'error'); }
+    finally{ setSaving(false); }
+  };
+
+  const del = async (id) => {
+    try{ await db.collection('news').doc(id).delete(); toast.add('Deleted'); }
+    catch(e){ toast.add(e.message,'error'); }
+    setConfirm(null);
+  };
+
+  const toggleBreaking = async (id,val) => {
+    await db.collection('news').doc(id).update({isBreaking:!val});
+    toast.add(!val?'Marked as Breaking!':'Removed Breaking');
+  };
+
+  const filtered = useMemo(()=>news.filter(n=>{
+    const q=search.toLowerCase();
+    const matchQ=!q||n.title?.toLowerCase().includes(q)||n.source?.toLowerCase().includes(q);
+    const matchC=filterCat==='all'||n.category===filterCat;
+    return matchQ&&matchC;
+  }),[news,search,filterCat]);
+
+  return (
+    <div className="fade-in">
+      {confirm&&<Confirm msg={`Delete "${confirm.title}"? This cannot be undone.`} onYes={()=>del(confirm.id)} onNo={()=>setConfirm(null)}/>}
+      {modal&&(
+        <div className="modal-bg">
+          <div className="modal fade-in">
+            <div style={{padding:'20px 24px',borderBottom:'1px solid #1e2f4a',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <h3 style={{fontFamily:'Syne,sans-serif',fontWeight:800,fontSize:17}}>{editing?'Edit News':'Add News'}</h3>
+              <button onClick={close} className="btn-ghost" style={{padding:'6px 10px'}}><Icon name="close" size={15}/></button>
+            </div>
+            <div style={{padding:'20px 24px',display:'flex',flexDirection:'column',gap:16}}>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:'#64748b',display:'block',marginBottom:6}}>TITLE *</label>
+                <input className="input" value={form.title} onChange={e=>setForm(p=>({...p,title:e.target.value}))} placeholder="News headline..." style={{width:'100%',padding:'11px 14px',fontSize:14}}/>
+              </div>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:'#64748b',display:'block',marginBottom:6}}>SUMMARY *</label>
+                <textarea className="input" value={form.summary} onChange={e=>setForm(p=>({...p,summary:e.target.value}))} placeholder="Short description..." style={{width:'100%',padding:'11px 14px',fontSize:14,minHeight:80}}/>
+              </div>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:'#64748b',display:'block',marginBottom:6}}>CONTENT</label>
+                <textarea className="input" value={form.content} onChange={e=>setForm(p=>({...p,content:e.target.value}))} placeholder="Full article content..." style={{width:'100%',padding:'11px 14px',fontSize:14,minHeight:120}}/>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+                <div>
+                  <label style={{fontSize:12,fontWeight:600,color:'#64748b',display:'block',marginBottom:6}}>CATEGORY</label>
+                  <select className="input" value={form.category} onChange={e=>setForm(p=>({...p,category:e.target.value}))} style={{width:'100%',padding:'11px 14px',fontSize:14}}>
+                    <option value="kuwait">🇰🇼 Kuwait</option>
+                    <option value="world">🌍 World</option>
+                    <option value="all">📰 All</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{fontSize:12,fontWeight:600,color:'#64748b',display:'block',marginBottom:6}}>MEDIA TYPE</label>
+                  <select className="input" value={form.mediaType} onChange={e=>setForm(p=>({...p,mediaType:e.target.value}))} style={{width:'100%',padding:'11px 14px',fontSize:14}}>
+                    <option value="image">🖼 Image</option>
+                    <option value="video">🎬 Video</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+                <div>
+                  <label style={{fontSize:12,fontWeight:600,color:'#64748b',display:'block',marginBottom:6}}>SOURCE NAME</label>
+                  <input className="input" value={form.source} onChange={e=>setForm(p=>({...p,source:e.target.value}))} placeholder="KWT News" style={{width:'100%',padding:'11px 14px',fontSize:14}}/>
+                </div>
+                <div>
+                  <label style={{fontSize:12,fontWeight:600,color:'#64748b',display:'block',marginBottom:6}}>READ TIME</label>
+                  <input className="input" value={form.readTime} onChange={e=>setForm(p=>({...p,readTime:e.target.value}))} placeholder="3 min read" style={{width:'100%',padding:'11px 14px',fontSize:14}}/>
+                </div>
+              </div>
+              <ImageUpload value={form.imageUrl} onChange={v=>setForm(p=>({...p,imageUrl:v}))} label="Image / Video"/>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 16px',background:'rgba(239,68,68,.06)',border:'1px solid rgba(239,68,68,.15)',borderRadius:12}}>
+                <div>
+                  <p style={{fontWeight:600,fontSize:13,color:'#f87171'}}>🚨 Breaking News</p>
+                  <p style={{fontSize:11,color:'#4a5568',marginTop:2}}>Will show BREAKING badge and send alert</p>
+                </div>
+                <button className="toggle" style={{background:form.isBreaking?'#ef4444':'#1e2f4a'}} onClick={()=>setForm(p=>({...p,isBreaking:!p.isBreaking}))}>
+                  <div className="toggle-thumb" style={{left:form.isBreaking?'21px':'3px'}}></div>
+                </button>
+              </div>
+            </div>
+            <div style={{padding:'16px 24px',borderTop:'1px solid #1e2f4a',display:'flex',gap:10,justifyContent:'flex-end'}}>
+              <button className="btn-ghost" style={{padding:'10px 20px',fontSize:13}} onClick={close}>Cancel</button>
+              <button className="btn-primary" style={{padding:'10px 24px',fontSize:13}} onClick={save} disabled={saving}>
+                {saving?'Saving…':editing?'Update News':'Publish News'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20,flexWrap:'wrap',gap:12}}>
+        <div>
+          <h2 style={{fontFamily:'Syne,sans-serif',fontSize:22,fontWeight:800,letterSpacing:'-.02em',marginBottom:2}}>News</h2>
+          <p style={{fontSize:12,color:'#4a5568'}}>{news.length} articles total</p>
+        </div>
+        <button className="btn-primary" style={{padding:'10px 18px',fontSize:13,display:'flex',alignItems:'center',gap:8}} onClick={openAdd}>
+          <Icon name="plus" size={15}/> Add News
+        </button>
+      </div>
+      <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap'}}>
+        <div style={{flex:1,minWidth:200,position:'relative'}}>
+          <div style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)'}}>
+            <Icon name="search" size={15} color="#4a5568"/>
+          </div>
+          <input className="input" placeholder="Search news title..." value={search} onChange={e=>setSearch(e.target.value)} style={{width:'100%',padding:'9px 12px 9px 36px',fontSize:13}}/>
+        </div>
+        {['all','kuwait','world'].map(c=>(
+          <button key={c} onClick={()=>setFilterCat(c)} style={{padding:'9px 16px',borderRadius:10,fontSize:12,fontWeight:600,border:'1px solid',cursor:'pointer',transition:'all .2s',background:filterCat===c?'#F5A623':'transparent',color:filterCat===c?'#080f1e':'#64748b',borderColor:filterCat===c?'#F5A623':'#1e2f4a'}}>
+            {c==='all'?'All':c==='kuwait'?'🇰🇼 Kuwait':'🌍 World'}
+          </button>
+        ))}
+      </div>
+      <div className="card" style={{overflow:'hidden'}}>
+        {loading?[1,2,3].map(i=><div key={i} style={{padding:'16px 20px',borderBottom:'1px solid #1e2f4a'}}><div className="skeleton" style={{height:14,borderRadius:6,width:'55%',marginBottom:8}}></div><div className="skeleton" style={{height:11,borderRadius:6,width:'30%'}}></div></div>):
+        filtered.length===0?<div style={{padding:48,textAlign:'center',color:'#4a5568'}}>No news found</div>:
+        filtered.map(n=>(
+          <div key={n.id} className="table-row" style={{padding:'14px 20px',borderBottom:'1px solid #0f1e36',display:'flex',alignItems:'center',gap:14}}>
+            <div style={{width:52,height:40,borderRadius:8,background:'#0a1628',overflow:'hidden',flexShrink:0}}>
+              {n.imageUrl&&<img src={n.imageUrl} style={{width:'100%',height:'100%',objectFit:'cover'}} loading="lazy"/>}
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3,flexWrap:'wrap'}}>
+                <p style={{fontSize:13,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:400}}>{n.title||'Untitled'}</p>
+                {n.isBreaking&&<span className="badge" style={{background:'rgba(239,68,68,.15)',color:'#f87171',border:'1px solid rgba(239,68,68,.2)',fontSize:9}}>BREAKING</span>}
+              </div>
+              <p style={{fontSize:11,color:'#4a5568'}}>{fmtDate(n.timestamp)} · {n.category||'—'} · 👁 {fmt(n.views)} · ❤️ {fmt(n.likes)}</p>
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
+              <button title="Toggle Breaking" className="btn-ghost" style={{padding:'6px 8px'}} onClick={()=>toggleBreaking(n.id,n.isBreaking)}>
+                <Icon name="warn" size={14} color={n.isBreaking?'#f87171':'#4a5568'}/>
+              </button>
+              <button title="Edit" className="btn-ghost" style={{padding:'6px 8px'}} onClick={()=>openEdit(n)}>
+                <Icon name="edit" size={14}/>
+              </button>
+              <button title="Delete" className="btn-danger" style={{padding:'6px 8px'}} onClick={()=>setConfirm({id:n.id,title:n.title})}>
+                <Icon name="trash" size={14}/>
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ── Ads Manager ────────────────────────────────────────────────
+const BLANK_AD = {title:'',description:'',imageUrl:'',link:'',position:'top_banner',active:true,startDate:'',endDate:'',impressions:0,clicks:0};
+const AdsManager = ({toast}) => {
+  const [ads,setAds] = useState([]);
+  const [loading,setLoading] = useState(true);
+  const [modal,setModal] = useState(false);
+  const [editing,setEditing] = useState(null);
+  const [form,setForm] = useState(BLANK_AD);
+  const [saving,setSaving] = useState(false);
+  const [confirm,setConfirm] = useState(null);
+
+  useEffect(()=>{
+    const u=db.collection('ads').onSnapshot(s=>{setAds(s.docs.map(d=>({id:d.id,...d.data()})));setLoading(false);});
+    return ()=>u();
+  },[]);
+
+  const open = (a=null) => {
+    if(a){ setEditing(a.id); setForm({...BLANK_AD,...a,startDate:a.startDate?.toDate?.()?new Date(a.startDate.toDate()).toISOString().split('T')[0]:'',endDate:a.endDate?.toDate?.()?new Date(a.endDate.toDate()).toISOString().split('T')[0]:''}); }
+    else { setEditing(null); setForm(BLANK_AD); }
+    setModal(true);
+  };
+  const close = ()=>{setModal(false);setEditing(null);setForm(BLANK_AD);};
+
+  const save = async () => {
+    if(!form.title.trim()){ toast.add('Title required','error'); return; }
+    setSaving(true);
+    try{
+      const data={...form,startDate:form.startDate?new Date(form.startDate):null,endDate:form.endDate?new Date(form.endDate):null};
+      if(editing){ await db.collection('ads').doc(editing).update(data); toast.add('Ad updated!'); }
+      else{ await db.collection('ads').add({...data,impressions:0,clicks:0,createdAt:firebase.firestore.FieldValue.serverTimestamp()}); toast.add('Ad created!'); }
+      close();
+    }catch(e){toast.add(e.message,'error');}
+    finally{setSaving(false);}
+  };
+  const del = async (id)=>{
+    await db.collection('ads').doc(id).delete(); toast.add('Ad deleted'); setConfirm(null);
+  };
+  const toggleActive = async (id,val)=>{ await db.collection('ads').doc(id).update({active:!val}); toast.add(!val?'Ad activated':'Ad paused'); };
+
+  const posLabel = (p)=>({top_banner:'Top Banner',in_feed:'In-Feed',sidebar_top:'Sidebar Top',sidebar_bottom:'Sidebar Bottom',footer:'Footer'}[p]||p);
+  const ctr = (ad)=>ad.impressions?((ad.clicks/ad.impressions)*100).toFixed(2)+'%':'—';
+
+  return (
+    <div className="fade-in">
+      {confirm&&<Confirm msg={`Delete ad "${confirm.title}"?`} onYes={()=>del(confirm.id)} onNo={()=>setConfirm(null)}/>}
+      {modal&&(
+        <div className="modal-bg">
+          <div className="modal fade-in">
+            <div style={{padding:'20px 24px',borderBottom:'1px solid #1e2f4a',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <h3 style={{fontFamily:'Syne,sans-serif',fontWeight:800,fontSize:17}}>{editing?'Edit Ad':'New Ad'}</h3>
+              <button onClick={close} className="btn-ghost" style={{padding:'6px 10px'}}><Icon name="close" size={15}/></button>
+            </div>
+            <div style={{padding:'20px 24px',display:'flex',flexDirection:'column',gap:14}}>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:'#64748b',display:'block',marginBottom:6}}>TITLE *</label>
+                <input className="input" value={form.title} onChange={e=>setForm(p=>({...p,title:e.target.value}))} placeholder="Ad title" style={{width:'100%',padding:'11px 14px',fontSize:14}}/>
+              </div>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:'#64748b',display:'block',marginBottom:6}}>DESCRIPTION</label>
+                <input className="input" value={form.description} onChange={e=>setForm(p=>({...p,description:e.target.value}))} placeholder="Short ad description" style={{width:'100%',padding:'11px 14px',fontSize:14}}/>
+              </div>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:'#64748b',display:'block',marginBottom:6}}>DESTINATION URL</label>
+                <input className="input" type="url" value={form.link} onChange={e=>setForm(p=>({...p,link:e.target.value}))} placeholder="https://example.com" style={{width:'100%',padding:'11px 14px',fontSize:14}}/>
+              </div>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:'#64748b',display:'block',marginBottom:6}}>POSITION</label>
+                <select className="input" value={form.position} onChange={e=>setForm(p=>({...p,position:e.target.value}))} style={{width:'100%',padding:'11px 14px',fontSize:14}}>
+                  {AD_POSITIONS.map(p=><option key={p} value={p}>{posLabel(p)}</option>)}
+                </select>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+                <div>
+                  <label style={{fontSize:12,fontWeight:600,color:'#64748b',display:'block',marginBottom:6}}>START DATE</label>
+                  <input className="input" type="date" value={form.startDate} onChange={e=>setForm(p=>({...p,startDate:e.target.value}))} style={{width:'100%',padding:'11px 14px',fontSize:14,colorScheme:'dark'}}/>
+                </div>
+                <div>
+                  <label style={{fontSize:12,fontWeight:600,color:'#64748b',display:'block',marginBottom:6}}>END DATE</label>
+                  <input className="input" type="date" value={form.endDate} onChange={e=>setForm(p=>({...p,endDate:e.target.value}))} style={{width:'100%',padding:'11px 14px',fontSize:14,colorScheme:'dark'}}/>
+                </div>
+              </div>
+              <ImageUpload value={form.imageUrl} onChange={v=>setForm(p=>({...p,imageUrl:v}))} label="Banner Image"/>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',background:'rgba(34,197,94,.06)',border:'1px solid rgba(34,197,94,.15)',borderRadius:12}}>
+                <span style={{fontSize:13,fontWeight:600,color:'#4ade80'}}>Active (visible to users)</span>
+                <button className="toggle" style={{background:form.active?'#22c55e':'#1e2f4a'}} onClick={()=>setForm(p=>({...p,active:!p.active}))}>
+                  <div className="toggle-thumb" style={{left:form.active?'21px':'3px'}}></div>
+                </button>
+              </div>
+            </div>
+            <div style={{padding:'16px 24px',borderTop:'1px solid #1e2f4a',display:'flex',gap:10,justifyContent:'flex-end'}}>
+              <button className="btn-ghost" style={{padding:'10px 20px',fontSize:13}} onClick={close}>Cancel</button>
+              <button className="btn-primary" style={{padding:'10px 24px',fontSize:13}} onClick={save} disabled={saving}>{saving?'Saving…':editing?'Update':'Create Ad'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20,flexWrap:'wrap',gap:12}}>
+        <div>
+          <h2 style={{fontFamily:'Syne,sans-serif',fontSize:22,fontWeight:800,letterSpacing:'-.02em',marginBottom:2}}>Ads</h2>
+          <p style={{fontSize:12,color:'#4a5568'}}>{ads.length} ads · {AD_POSITIONS.length} positions available</p>
+        </div>
+        <button className="btn-primary" style={{padding:'10px 18px',fontSize:13,display:'flex',alignItems:'center',gap:8}} onClick={()=>open()}>
+          <Icon name="plus" size={15}/> New Ad
+        </button>
+      </div>
+      {/* Position Overview */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:10,marginBottom:20}}>
+        {AD_POSITIONS.map(pos=>{
+          const count=ads.filter(a=>a.position===pos&&a.active).length;
+          return (
+            <div key={pos} style={{padding:'12px 14px',borderRadius:12,background:count>0?'rgba(245,166,35,.08)':'#0d1b33',border:`1px solid ${count>0?'rgba(245,166,35,.25)':'#1e2f4a'}`}}>
+              <p style={{fontSize:11,fontWeight:700,color:count>0?'#F5A623':'#4a5568',marginBottom:4}}>{posLabel(pos)}</p>
+              <p style={{fontSize:20,fontWeight:800,fontFamily:'Syne,sans-serif',color:count>0?'#F5A623':'#2a3a5c'}}>{count}</p>
+              <p style={{fontSize:10,color:'#4a5568'}}>active</p>
+            </div>
+          );
+        })}
+      </div>
+      <div className="card" style={{overflow:'hidden'}}>
+        {loading?<div style={{padding:32,textAlign:'center'}}><div className="skeleton" style={{height:40,borderRadius:8}}></div></div>:
+        ads.length===0?<div style={{padding:48,textAlign:'center',color:'#4a5568'}}>No ads yet</div>:
+        ads.map(a=>(
+          <div key={a.id} className="table-row" style={{padding:'14px 20px',borderBottom:'1px solid #0f1e36',display:'flex',alignItems:'center',gap:14}}>
+            <div style={{width:52,height:40,borderRadius:8,background:'#0a1628',overflow:'hidden',flexShrink:0}}>
+              {a.imageUrl&&<img src={a.imageUrl} style={{width:'100%',height:'100%',objectFit:'cover'}} loading="lazy"/>}
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3,flexWrap:'wrap'}}>
+                <p style={{fontSize:13,fontWeight:600}}>{a.title}</p>
+                <span className="badge" style={{background:a.active?'rgba(34,197,94,.1)':'rgba(100,116,139,.1)',color:a.active?'#4ade80':'#64748b',border:`1px solid ${a.active?'rgba(34,197,94,.2)':'rgba(100,116,139,.2)'}`,fontSize:9}}>{a.active?'LIVE':'PAUSED'}</span>
+                <span className="badge" style={{background:'rgba(245,166,35,.1)',color:'#F5A623',border:'1px solid rgba(245,166,35,.2)',fontSize:9}}>{posLabel(a.position)}</span>
+              </div>
+              <p style={{fontSize:11,color:'#4a5568'}}>👁 {fmt(a.impressions)} impressions · 🖱 {fmt(a.clicks)} clicks · CTR {ctr(a)} · {fmtDate(a.startDate)} → {fmtDate(a.endDate)}</p>
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
+              <button className="toggle" style={{background:a.active?'#22c55e':'#1e2f4a'}} onClick={()=>toggleActive(a.id,a.active)}>
+                <div className="toggle-thumb" style={{left:a.active?'21px':'3px'}}></div>
+              </button>
+              <button className="btn-ghost" style={{padding:'6px 8px'}} onClick={()=>open(a)}><Icon name="edit" size={14}/></button>
+              <button className="btn-danger" style={{padding:'6px 8px'}} onClick={()=>setConfirm({id:a.id,title:a.title})}><Icon name="trash" size={14}/></button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ── Comments Manager ───────────────────────────────────────────
+const CommentsManager = ({toast}) => {
+  const [comments,setComments] = useState([]);
+  const [loading,setLoading] = useState(true);
+  const [filter,setFilter] = useState('all');
+  const [confirm,setConfirm] = useState(null);
+  const [search,setSearch] = useState('');
+
+  useEffect(()=>{
+    const u=db.collection('comments').orderBy('timestamp','desc').limit(100).onSnapshot(s=>{
+      setComments(s.docs.map(d=>({id:d.id,...d.data()})));
+      setLoading(false);
+    });
+    return ()=>u();
+  },[]);
+
+  const del = async (id)=>{
+    await db.collection('comments').doc(id).delete(); toast.add('Comment deleted'); setConfirm(null);
+  };
+
+  const filtered = useMemo(()=>comments.filter(c=>{
+    const q=search.toLowerCase();
+    const matchQ=!q||c.content?.toLowerCase().includes(q)||c.authorName?.toLowerCase().includes(q);
+    const matchF=filter==='all'||(filter==='reported'&&c.reportCount>0);
+    return matchQ&&matchF;
+  }),[comments,search,filter]);
+
+  const reported=comments.filter(c=>c.reportCount>0).length;
+
+  return (
+    <div className="fade-in">
+      {confirm&&<Confirm msg={`Delete this comment by "${confirm.name}"?`} onYes={()=>del(confirm.id)} onNo={()=>setConfirm(null)}/>}
+      <div style={{marginBottom:20}}>
+        <h2 style={{fontFamily:'Syne,sans-serif',fontSize:22,fontWeight:800,letterSpacing:'-.02em',marginBottom:2}}>Comments</h2>
+        <p style={{fontSize:12,color:'#4a5568'}}>{comments.length} total · <span style={{color:'#f87171'}}>{reported} reported</span></p>
+      </div>
+      <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap'}}>
+        <div style={{flex:1,minWidth:200,position:'relative'}}>
+          <div style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)'}}><Icon name="search" size={15} color="#4a5568"/></div>
+          <input className="input" placeholder="Search comments or author..." value={search} onChange={e=>setSearch(e.target.value)} style={{width:'100%',padding:'9px 12px 9px 36px',fontSize:13}}/>
+        </div>
+        {['all','reported'].map(f=>(
+          <button key={f} onClick={()=>setFilter(f)} style={{padding:'9px 16px',borderRadius:10,fontSize:12,fontWeight:600,border:'1px solid',cursor:'pointer',transition:'all .2s',background:filter===f?f==='reported'?'#ef4444':'#F5A623':'transparent',color:filter===f?'#080f1e':f==='reported'?'#f87171':'#64748b',borderColor:filter===f?f==='reported'?'#ef4444':'#F5A623':f==='reported'?'rgba(239,68,68,.3)':'#1e2f4a'}}>
+            {f==='all'?'All Comments':`🚨 Reported (${reported})`}
+          </button>
+        ))}
+      </div>
+      <div className="card" style={{overflow:'hidden'}}>
+        {loading?[1,2,3].map(i=><div key={i} style={{padding:'16px 20px',borderBottom:'1px solid #1e2f4a'}}><div className="skeleton" style={{height:14,borderRadius:6,width:'70%',marginBottom:8}}></div><div className="skeleton" style={{height:11,borderRadius:6,width:'40%'}}></div></div>):
+        filtered.length===0?<div style={{padding:48,textAlign:'center',color:'#4a5568'}}>No comments found</div>:
+        filtered.map(c=>(
+          <div key={c.id} className="table-row" style={{padding:'14px 20px',borderBottom:'1px solid #0f1e36',display:'flex',alignItems:'flex-start',gap:12}}>
+            <img src={c.authorPhoto||`https://ui-avatars.com/api/?name=${encodeURIComponent(c.authorName||'U')}&background=1e2f4a&color=F5A623`} style={{width:36,height:36,borderRadius:'50%',flexShrink:0,objectFit:'cover'}}/>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:4,flexWrap:'wrap'}}>
+                <span style={{fontSize:13,fontWeight:700}}>{c.authorName||'Anonymous'}</span>
+                <span style={{fontSize:11,color:'#4a5568'}}>{timeAgo(c.timestamp)}</span>
+                {(c.reportCount||0)>0&&<span className="badge" style={{background:'rgba(239,68,68,.12)',color:'#f87171',border:'1px solid rgba(239,68,68,.2)',fontSize:9}}>⚠️ {c.reportCount} REPORTS</span>}
+              </div>
+              <p style={{fontSize:13,color:'#94a3b8',lineHeight:1.5,wordBreak:'break-word'}}>{c.content}</p>
+              <p style={{fontSize:11,color:'#2a3a5c',marginTop:4}}>On news: {c.newsId}</p>
+            </div>
+            <button className="btn-danger" style={{padding:'6px 8px',flexShrink:0,marginTop:2}} onClick={()=>setConfirm({id:c.id,name:c.authorName})}>
+              <Icon name="trash" size={14}/>
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ── Users Manager ──────────────────────────────────────────────
+const UsersManager = ({toast}) => {
+  const [users,setUsers] = useState([]);
+  const [loading,setLoading] = useState(true);
+  const [search,setSearch] = useState('');
+  const [confirm,setConfirm] = useState(null);
+
+  useEffect(()=>{
+    const u=db.collection('users').orderBy('createdAt','desc').onSnapshot(s=>{
+      setUsers(s.docs.map(d=>({id:d.id,...d.data()})));
+      setLoading(false);
+    });
+    return ()=>u();
+  },[]);
+
+  const toggleBlock = async (id,blocked) => {
+    await db.collection('users').doc(id).update({blocked:!blocked});
+    toast.add(!blocked?'User blocked':'User unblocked');
+  };
+
+  // Search by displayName ONLY (not email — privacy)
+  const filtered = useMemo(()=>users.filter(u=>{
+    if(!search.trim()) return true;
+    const q=search.toLowerCase();
+    return u.displayName?.toLowerCase().includes(q);
+  }),[users,search]);
+
+  const providerIcon = (u) => {
+    if(u.providerData?.[0]?.providerId==='google.com') return '🔵 Google';
+    if(u.providerData?.[0]?.providerId==='apple.com') return '⚫ Apple';
+    return '✉️ Email';
+  };
+
+  return (
+    <div className="fade-in">
+      {confirm&&<Confirm msg={`Block user "${confirm.name}"? They won't be able to interact.`} onYes={()=>{toggleBlock(confirm.id,false);setConfirm(null);}} onNo={()=>setConfirm(null)}/>}
+      <div style={{marginBottom:20}}>
+        <h2 style={{fontFamily:'Syne,sans-serif',fontSize:22,fontWeight:800,letterSpacing:'-.02em',marginBottom:2}}>Users</h2>
+        <p style={{fontSize:12,color:'#4a5568'}}>{users.length} registered · <span style={{color:'#f87171'}}>{users.filter(u=>u.blocked).length} blocked</span></p>
+      </div>
+      <div style={{display:'flex',gap:10,marginBottom:16}}>
+        <div style={{flex:1,position:'relative'}}>
+          <div style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)'}}><Icon name="search" size={15} color="#4a5568"/></div>
+          <input className="input" placeholder="Search by name..." value={search} onChange={e=>setSearch(e.target.value)} style={{width:'100%',padding:'9px 12px 9px 36px',fontSize:13}}/>
+        </div>
+        <div style={{padding:'9px 16px',borderRadius:10,background:'rgba(245,166,35,.08)',border:'1px solid rgba(245,166,35,.2)',fontSize:12,fontWeight:700,color:'#F5A623',display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
+          <Icon name="users" size={14} color="#F5A623"/>
+          {fmt(users.length)} Users
+        </div>
+      </div>
+      <div className="card" style={{overflow:'hidden'}}>
+        {loading?[1,2,3].map(i=><div key={i} style={{padding:'16px 20px',borderBottom:'1px solid #1e2f4a'}}><div className="skeleton" style={{height:14,borderRadius:6,width:'40%',marginBottom:8}}></div><div className="skeleton" style={{height:11,borderRadius:6,width:'25%'}}></div></div>):
+        filtered.length===0?<div style={{padding:48,textAlign:'center',color:'#4a5568'}}>No users found</div>:
+        filtered.map(u=>(
+          <div key={u.id} className="table-row" style={{padding:'13px 20px',borderBottom:'1px solid #0f1e36',display:'flex',alignItems:'center',gap:12}}>
+            <img src={u.photoURL||`https://ui-avatars.com/api/?name=${encodeURIComponent(u.displayName||'U')}&background=1e2f4a&color=F5A623&size=80`} style={{width:38,height:38,borderRadius:'50%',flexShrink:0,objectFit:'cover',border:'2px solid #1e2f4a'}}/>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:2,flexWrap:'wrap'}}>
+                <p style={{fontSize:13,fontWeight:700}}>{u.displayName||'Anonymous'}</p>
+                {u.blocked&&<span className="badge" style={{background:'rgba(239,68,68,.12)',color:'#f87171',border:'1px solid rgba(239,68,68,.2)',fontSize:9}}>BLOCKED</span>}
+              </div>
+              <p style={{fontSize:11,color:'#4a5568'}}>{fmtDate(u.createdAt)} · {providerIcon(u)} · ❤️ {u.likedPosts?.length||0} · 🔖 {u.savedPosts?.length||0}</p>
+            </div>
+            <div style={{display:'flex',gap:8,flexShrink:0}}>
+              {u.blocked?(
+                <button className="btn-ghost" style={{padding:'6px 12px',fontSize:12}} onClick={()=>toggleBlock(u.id,true)}>Unblock</button>
+              ):(
+                <button className="btn-danger" style={{padding:'6px 10px'}} onClick={()=>setConfirm({id:u.id,name:u.displayName})}>
+                  <Icon name="ban" size={14}/>
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ── Push Notifications ─────────────────────────────────────────
+const PushNotifications = ({toast}) => {
+  const [title,setTitle] = useState('');
+  const [body,setBody] = useState('');
+  const [sending,setSending] = useState(false);
+  const [serverKey,setServerKey] = useState(()=>localStorage.getItem('fcm_server_key')||'');
+  const [tokenCount,setTokenCount] = useState(0);
+  const [history,setHistory] = useState([]);
+
+  useEffect(()=>{
+    db.collection('fcm_tokens').get().then(s=>setTokenCount(s.size));
+    db.collection('notification_history').orderBy('sentAt','desc').limit(10).onSnapshot(s=>{
+      setHistory(s.docs.map(d=>({id:d.id,...d.data()})));
+    });
+  },[]);
+
+  const saveKey = () => { localStorage.setItem('fcm_server_key',serverKey); toast.add('Server key saved locally'); };
+
+  const send = async () => {
+    if(!title.trim()||!body.trim()){ toast.add('Title and message required','error'); return; }
+    setSending(true);
+    try{
+      const snap = await db.collection('fcm_tokens').get();
+      const tokens = snap.docs.map(d=>d.data().token).filter(Boolean);
+      if(tokens.length===0){ toast.add('No subscribers found','error'); setSending(false); return; }
+
+      // Save to notification history first
+      await db.collection('notification_history').add({
+        title, body, sentAt:firebase.firestore.FieldValue.serverTimestamp(), tokenCount:tokens.length, status:'sent'
+      });
+
+      if(serverKey){
+        // Batch send — FCM allows 1000 tokens per request
+        const batches=[];
+        for(let i=0;i<tokens.length;i+=1000) batches.push(tokens.slice(i,i+1000));
+        let sent=0;
+        for(const batch of batches){
+          try{
+            const res=await fetch('https://fcm.googleapis.com/fcm/send',{
+              method:'POST',
+              headers:{'Content-Type':'application/json','Authorization':`key=${serverKey}`},
+              body:JSON.stringify({registration_ids:batch,notification:{title,body,icon:'/icon-192.png',badge:'/icon-192.png',click_action:'https://kwtnews.com'},data:{type:'breaking',title,body}})
+            });
+            const data=await res.json();
+            sent+=data.success||0;
+          }catch(e){console.error('FCM batch error:',e);}
+        }
+        toast.add(`✅ Sent to ${sent} / ${tokens.length} devices!`);
+      } else {
+        toast.add(`📝 Notification queued (${tokens.length} tokens). Add FCM server key to send directly.`,'info');
+      }
+      setTitle(''); setBody('');
+    }catch(e){ toast.add(e.message,'error'); }
+    finally{ setSending(false); }
+  };
+
+  return (
+    <div className="fade-in">
+      <div style={{marginBottom:24}}>
+        <h2 style={{fontFamily:'Syne,sans-serif',fontSize:22,fontWeight:800,letterSpacing:'-.02em',marginBottom:2}}>Push Notifications</h2>
+        <p style={{fontSize:12,color:'#4a5568'}}>Send breaking news alerts to all subscribers</p>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:14,marginBottom:24}}>
+        {[
+          {label:'Total Subscribers',value:fmt(tokenCount),icon:'bell',color:'#F5A623'},
+          {label:'Notifications Sent',value:fmt(history.length),icon:'send',color:'#38bdf8'},
+          {label:'Latest Batch',value:history[0]?fmt(history[0].tokenCount):'—',icon:'users',color:'#a78bfa'},
+        ].map((s,i)=>(
+          <div key={i} className="stat-card">
+            <div style={{width:36,height:36,borderRadius:10,background:`${s.color}18`,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:12}}>
+              <Icon name={s.icon} size={16} color={s.color}/>
+            </div>
+            <div style={{fontFamily:'Syne,sans-serif',fontSize:26,fontWeight:800,color:s.color,marginBottom:2}}>{s.value}</div>
+            <div style={{fontSize:12,color:'#64748b'}}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20,alignItems:'start'}}>
+        <div>
+          <div className="card" style={{padding:24,marginBottom:16}}>
+            <p style={{fontWeight:700,fontSize:14,marginBottom:16,display:'flex',alignItems:'center',gap:8}}><Icon name="send" size={15} color="#F5A623"/> Compose Notification</p>
+            <div style={{display:'flex',flexDirection:'column',gap:14}}>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:'#64748b',display:'block',marginBottom:6}}>NOTIFICATION TITLE *</label>
+                <input className="input" value={title} onChange={e=>setTitle(e.target.value)} placeholder="🚨 Breaking News — KWT News" style={{width:'100%',padding:'11px 14px',fontSize:14}}/>
+              </div>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:'#64748b',display:'block',marginBottom:6}}>MESSAGE *</label>
+                <textarea className="input" value={body} onChange={e=>setBody(e.target.value)} placeholder="Write your breaking news alert here..." style={{width:'100%',padding:'11px 14px',fontSize:14,minHeight:100}}/>
+              </div>
+              {title&&body&&(
+                <div style={{padding:14,background:'#080f1e',border:'1px solid #1e2f4a',borderRadius:12}}>
+                  <p style={{fontSize:10,fontWeight:700,color:'#4a5568',marginBottom:8,letterSpacing:'.08em'}}>PREVIEW</p>
+                  <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
+                    <div style={{width:32,height:32,borderRadius:8,background:'#F5A623',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><span style={{fontSize:10,fontWeight:800,color:'#080f1e'}}>KWT</span></div>
+                    <div><p style={{fontSize:13,fontWeight:700,marginBottom:2}}>{title}</p><p style={{fontSize:12,color:'#94a3b8',lineHeight:1.4}}>{body}</p></div>
+                  </div>
+                </div>
+              )}
+              <button className="btn-primary" style={{padding:'12px',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',gap:8}} onClick={send} disabled={sending||!title||!body}>
+                <Icon name="send" size={15}/>{sending?`Sending to ${tokenCount} subscribers…`:`Send to ${fmt(tokenCount)} Subscribers`}
+              </button>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div className="card" style={{padding:24,marginBottom:16}}>
+            <p style={{fontWeight:700,fontSize:14,marginBottom:6,display:'flex',alignItems:'center',gap:8}}><Icon name="settings" size={15} color="#64748b"/> FCM Server Key</p>
+            <p style={{fontSize:12,color:'#4a5568',marginBottom:14,lineHeight:1.5}}>Enter your Firebase Cloud Messaging Legacy Server Key to send notifications directly. Get it from Firebase Console → Project Settings → Cloud Messaging.</p>
+            <div style={{display:'flex',gap:8}}>
+              <input className="input" type="password" value={serverKey} onChange={e=>setServerKey(e.target.value)} placeholder="AAAAxxxxxxxx:APA91..." style={{flex:1,padding:'10px 14px',fontSize:13}}/>
+              <button className="btn-ghost" style={{padding:'10px 14px',fontSize:12,flexShrink:0}} onClick={saveKey}>Save</button>
+            </div>
+            {serverKey&&<p style={{fontSize:11,color:'#22c55e',marginTop:8}}>✓ Key saved locally (never sent to server)</p>}
+          </div>
+          <div className="card" style={{padding:24}}>
+            <p style={{fontWeight:700,fontSize:14,marginBottom:14,display:'flex',alignItems:'center',gap:8}}><Icon name="refresh" size={15} color="#64748b"/> Notification History</p>
+            {history.length===0?<p style={{fontSize:13,color:'#4a5568',textAlign:'center',padding:'16px 0'}}>No notifications sent yet</p>:
+            history.map(h=>(
+              <div key={h.id} style={{padding:'10px 0',borderBottom:'1px solid #1e2f4a',display:'flex',gap:10,alignItems:'flex-start'}}>
+                <div style={{width:8,height:8,borderRadius:'50%',background:'#22c55e',marginTop:4,flexShrink:0}}></div>
+                <div style={{flex:1}}>
+                  <p style={{fontSize:13,fontWeight:600,marginBottom:2}}>{h.title}</p>
+                  <p style={{fontSize:11,color:'#4a5568'}}>{timeAgo(h.sentAt)} · {fmt(h.tokenCount)} devices</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Settings ───────────────────────────────────────────────────
+const Settings = ({user,toast}) => {
+  const [admins,setAdmins] = useState([]);
+  const [newAdminUid,setNewAdminUid] = useState('');
+  const [adding,setAdding] = useState(false);
+
+  useEffect(()=>{
+    db.collection('admins').onSnapshot(s=>setAdmins(s.docs.map(d=>({id:d.id,...d.data()}))));
+  },[]);
+
+  const addAdmin = async () => {
+    if(!newAdminUid.trim()){ toast.add('Enter a Firebase UID','error'); return; }
+    setAdding(true);
+    await db.collection('admins').doc(newAdminUid.trim()).set({addedAt:firebase.firestore.FieldValue.serverTimestamp(),addedBy:user.uid});
+    setNewAdminUid(''); setAdding(false); toast.add('Admin added!');
+  };
+  const removeAdmin = async (id) => {
+    if(id===user.uid){ toast.add('Cannot remove yourself','error'); return; }
+    await db.collection('admins').doc(id).delete(); toast.add('Admin removed');
+  };
+
+  return (
+    <div className="fade-in">
+      <div style={{marginBottom:24}}>
+        <h2 style={{fontFamily:'Syne,sans-serif',fontSize:22,fontWeight:800,letterSpacing:'-.02em',marginBottom:2}}>Settings</h2>
+        <p style={{fontSize:12,color:'#4a5568'}}>Admin access & configuration</p>
+      </div>
+      <div style={{display:'grid',gap:20}}>
+        <div className="card" style={{padding:24}}>
+          <p style={{fontWeight:700,fontSize:14,marginBottom:6,display:'flex',alignItems:'center',gap:8}}><Icon name="users" size={15} color="#F5A623"/> Admin Access</p>
+          <p style={{fontSize:12,color:'#4a5568',marginBottom:16}}>Manage who can access this admin panel. Use Firebase UID (from Firebase Auth console).</p>
+          <div style={{display:'flex',gap:8,marginBottom:16}}>
+            <input className="input" value={newAdminUid} onChange={e=>setNewAdminUid(e.target.value)} placeholder="Firebase UID (e.g. abc123xyz)" style={{flex:1,padding:'10px 14px',fontSize:13}}/>
+            <button className="btn-primary" style={{padding:'10px 18px',fontSize:13,flexShrink:0}} onClick={addAdmin} disabled={adding}>{adding?'Adding…':'Add Admin'}</button>
+          </div>
+          <div style={{display:'flex',flexDirection:'column',gap:8}}>
+            {admins.map(a=>(
+              <div key={a.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'#080f1e',borderRadius:10,border:'1px solid #1e2f4a'}}>
+                <div style={{width:32,height:32,borderRadius:'50%',background:'rgba(245,166,35,.15)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                  <Icon name="users" size={14} color="#F5A623"/>
+                </div>
+                <div style={{flex:1}}>
+                  <p style={{fontSize:13,fontWeight:600,fontFamily:'JetBrains Mono,monospace',color:'#e2e8f0'}}>{a.id}</p>
+                  {a.id===user.uid&&<p style={{fontSize:10,color:'#F5A623',fontWeight:700}}>YOU</p>}
+                </div>
+                <button className="btn-danger" style={{padding:'5px 8px'}} onClick={()=>removeAdmin(a.id)}>
+                  <Icon name="trash" size={13}/>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="card" style={{padding:24}}>
+          <p style={{fontWeight:700,fontSize:14,marginBottom:6,display:'flex',alignItems:'center',gap:8}}><Icon name="star" size={15} color="#F5A623"/> Your Account</p>
+          <div style={{display:'flex',gap:12,alignItems:'center',padding:'14px',background:'#080f1e',borderRadius:12,border:'1px solid #1e2f4a'}}>
+            <img src={user.photoURL||`https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName||'A')}&background=F5A623&color=080f1e`} style={{width:48,height:48,borderRadius:'50%',objectFit:'cover',border:'2px solid #F5A623'}}/>
+            <div>
+              <p style={{fontWeight:700,fontSize:14}}>{user.displayName||'Admin'}</p>
+              <p style={{fontSize:12,color:'#4a5568'}}>{user.email}</p>
+              <p style={{fontSize:11,color:'#F5A623',marginTop:2,fontWeight:600}}>✓ Admin Access Granted</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Admin Layout (Sidebar + Content) ──────────────────────────
+const PAGES = [
+  {id:'dashboard',label:'Dashboard',icon:'dashboard'},
+  {id:'news',label:'News',icon:'news'},
+  {id:'ads',label:'Ads',icon:'ads'},
+  {id:'comments',label:'Comments',icon:'comments'},
+  {id:'users',label:'Users',icon:'users'},
+  {id:'notifications',label:'Push Alerts',icon:'bell'},
+  {id:'settings',label:'Settings',icon:'settings'},
+];
+
+const AdminLayout = ({user,onLogout}) => {
+  const [page,setPage] = useState('dashboard');
+  const [sidebarOpen,setSidebarOpen] = useState(false);
+  const toast = useToast();
+
+  const pg = PAGES.find(p=>p.id===page)||PAGES[0];
+
+  const SidebarContent = () => (
+    <div style={{display:'flex',flexDirection:'column',height:'100%'}}>
+      <div style={{padding:'20px 16px 16px',borderBottom:'1px solid #1e2f4a',flexShrink:0}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:36,height:36,borderRadius:10,background:'#F5A623',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+            <span style={{fontFamily:'Syne,sans-serif',fontWeight:800,fontSize:12,color:'#080f1e'}}>KWT</span>
+          </div>
+          <div>
+            <p style={{fontFamily:'Syne,sans-serif',fontWeight:800,fontSize:14,lineHeight:1}}>KWT News</p>
+            <p style={{fontSize:10,color:'#4a5568',marginTop:2}}>Admin Panel</p>
+          </div>
+        </div>
+      </div>
+      <nav style={{padding:'12px 10px',flex:1,overflowY:'auto'}}>
+        <p style={{fontSize:9,fontWeight:700,color:'#2a3a5c',letterSpacing:'.1em',textTransform:'uppercase',padding:'6px 8px',marginBottom:4}}>NAVIGATION</p>
+        {PAGES.map(p=>(
+          <button key={p.id} className={`nav-item ${page===p.id?'active':''}`} onClick={()=>{setPage(p.id);setSidebarOpen(false);}}>
+            <Icon name={p.icon} size={16}/> {p.label}
+          </button>
+        ))}
+      </nav>
+      <div style={{padding:'12px 10px',borderTop:'1px solid #1e2f4a',flexShrink:0}}>
+        <div style={{padding:'10px 12px',borderRadius:10,marginBottom:8,display:'flex',gap:8,alignItems:'center'}}>
+          <img src={user.photoURL||`https://ui-avatars.com/api/?name=A&background=F5A623&color=080f1e`} style={{width:28,height:28,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>
+          <div style={{minWidth:0,flex:1}}>
+            <p style={{fontSize:12,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{user.displayName||'Admin'}</p>
+            <p style={{fontSize:10,color:'#4a5568',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{user.email}</p>
+          </div>
+        </div>
+        <button className="nav-item" style={{color:'#f87171'}} onClick={onLogout}>
+          <Icon name="logout" size={16} color="#f87171"/> Sign Out
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderPage = () => {
+    const p = {toast};
+    switch(page){
+      case 'dashboard': return <Dashboard/>;
+      case 'news': return <NewsManager {...p}/>;
+      case 'ads': return <AdsManager {...p}/>;
+      case 'comments': return <CommentsManager {...p}/>;
+      case 'users': return <UsersManager {...p}/>;
+      case 'notifications': return <PushNotifications {...p}/>;
+      case 'settings': return <Settings user={user} {...p}/>;
+      default: return <Dashboard/>;
+    }
+  };
+
+  return (
+    <div style={{display:'flex',minHeight:'100vh'}}>
+      {/* Mobile overlay */}
+      {sidebarOpen&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.6)',zIndex:40}} onClick={()=>setSidebarOpen(false)}/>}
+      {/* Sidebar */}
+      <aside style={{width:220,background:'#080f1e',borderRight:'1px solid #1e2f4a',position:'fixed',top:0,left:0,height:'100vh',zIndex:50,transform:sidebarOpen?'translateX(0)':'translateX(-100%)',transition:'transform .25s',display:'flex',flexDirection:'column'}} className="lg-sidebar">
+        <SidebarContent/>
+      </aside>
+      {/* Desktop sidebar */}
+      <style>{`@media(min-width:768px){.lg-sidebar{transform:translateX(0)!important}.main-content{margin-left:220px!important}}`}</style>
+      {/* Main */}
+      <main className="main-content" style={{flex:1,minWidth:0,display:'flex',flexDirection:'column'}}>
+        {/* Top bar */}
+        <div style={{position:'sticky',top:0,background:'#080f1e',borderBottom:'1px solid #1e2f4a',padding:'0 20px',height:56,display:'flex',alignItems:'center',justifyContent:'space-between',zIndex:30,flexShrink:0}}>
+          <div style={{display:'flex',alignItems:'center',gap:12}}>
+            <button onClick={()=>setSidebarOpen(true)} style={{background:'transparent',border:'none',cursor:'pointer',color:'#64748b',display:'flex',padding:6,borderRadius:8}} className="md-hide">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              <Icon name={pg.icon} size={16} color="#F5A623"/>
+              <span style={{fontFamily:'Syne,sans-serif',fontWeight:700,fontSize:15}}>{pg.label}</span>
+            </div>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:12}}>
+            <div style={{display:'flex',alignItems:'center',gap:6,padding:'5px 12px',borderRadius:999,background:'rgba(34,197,94,.08)',border:'1px solid rgba(34,197,94,.2)'}}>
+              <div className="live-dot" style={{width:6,height:6,borderRadius:'50%',background:'#22c55e'}}></div>
+              <span style={{fontSize:11,color:'#22c55e',fontWeight:700}}>LIVE</span>
+            </div>
+          </div>
+        </div>
+        {/* Page Content */}
+        <div style={{flex:1,padding:'28px 24px',overflowY:'auto',maxWidth:1100,width:'100%',margin:'0 auto',boxSizing:'border-box'}}>
+          {renderPage()}
+        </div>
+      </main>
+      <toast.Toast/>
+    </div>
+  );
+};
+
+// ── Root App ───────────────────────────────────────────────────
+const AdminApp = () => {
+  const [user,setUser] = useState(null);
+  const [checking,setChecking] = useState(true);
+
+  useEffect(()=>{
+    const u=auth.onAuthStateChanged((u)=>{
+      setUser(u||null);
+      setChecking(false);
+    });
+    return ()=>u();
+  },[]);
+
+  const logout = ()=>{ auth.signOut(); setUser(null); };
+
+  if(checking) return (
+    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:16}}>
+      <div style={{width:40,height:40,border:'3px solid #F5A623',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 1s linear infinite'}}></div>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      <p style={{fontSize:13,color:'#4a5568'}}>Loading…</p>
+    </div>
+  );
+
+  if(!user) return <LoginPage onLogin={setUser}/>;
+  return <AdminLayout user={user} onLogout={logout}/>;
+};
+
+createRoot(document.getElementById('root')).render(<AdminApp/>);
+</script>
+</body>
+  </html>

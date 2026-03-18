@@ -17,7 +17,7 @@ jobs:
         run: |
           cd scripts
           npm install
-      - name: Generate & Upload News
+      - name: Generate and Upload News
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           FIREBASE_CONFIG: ${{ secrets.FIREBASE_CONFIG }}

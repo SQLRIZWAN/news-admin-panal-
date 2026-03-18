@@ -1,5 +1,3 @@
-name: Generate News with Gemini AI
-
 on:
   schedule:
     - cron: '0 */3 * * *'
